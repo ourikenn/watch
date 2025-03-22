@@ -2,15 +2,22 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>WatchParty Room</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/room.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Optimisation pour les appareils iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- Optimisation pour Android -->
+    <meta name="theme-color" content="#1f1f1f">
     <!-- Chargement de la bibliothèque Socket.IO -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <!-- QR Code Generator -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <!-- Configuration -->
+    <script src="js/config.js"></script>
 </head>
 <body class="room-page">
     <header class="header room-header">
@@ -105,6 +112,12 @@
             </div>
         </div>
     </main>
+
+    <!-- Boutons flottants visibles uniquement sur mobile -->
+    <div class="mobile-floating-controls">
+        <button id="mobile-add-video" class="mobile-floating-btn"><i class="fas fa-plus"></i></button>
+        <button id="mobile-toggle-chat" class="mobile-floating-btn"><i class="fas fa-comment"></i></button>
+    </div>
 
     <div id="share-modal" class="modal">
         <div class="modal-content">

@@ -1,6 +1,64 @@
-# WatchParty
+# WatchParty - Application de visionnage en groupe
 
-Application pour regarder des vidéos YouTube en groupe, avec chat en temps réel et synchronisation de la lecture.
+WatchParty est une application web qui permet à plusieurs utilisateurs de regarder des vidéos YouTube et d'autres plateformes ensemble, en synchronisant la lecture et en discutant en temps réel.
+
+## Configuration de l'API YouTube
+
+Pour utiliser la fonctionnalité de recherche de vidéos YouTube, vous devez configurer une clé API YouTube Data v3. Voici comment procéder :
+
+1. **Créer un projet Google Cloud**
+   - Allez sur [Google Cloud Console](https://console.cloud.google.com/)
+   - Connectez-vous avec votre compte Google
+   - Créez un nouveau projet en cliquant sur le sélecteur de projet en haut de la page
+
+2. **Activer l'API YouTube Data v3**
+   - Dans le menu de navigation, allez à "APIs et Services" > "Bibliothèque"
+   - Recherchez "YouTube Data API v3" et sélectionnez-la
+   - Cliquez sur le bouton "Activer"
+
+3. **Créer une clé API**
+   - Dans le menu de navigation, allez à "APIs et Services" > "Identifiants"
+   - Cliquez sur "Créer des identifiants" et sélectionnez "Clé API"
+   - Une boîte de dialogue affichera votre nouvelle clé API
+   - Copiez cette clé
+
+4. **Configurer l'application**
+   - Ouvrez le fichier `.env` à la racine du projet
+   - Remplacez `YOUR_YOUTUBE_API_KEY` par la clé API que vous avez copiée
+   - Exemple : `YOUTUBE_API_KEY=AIzaSyD5XbF5gHGJ6VhH3m0l7Kn1Z5XzY5yYyYy`
+
+5. **Redémarrer le serveur**
+   - La nouvelle clé API sera prise en compte
+
+## Notes importantes
+
+- La clé API YouTube a des quotas limités (généralement 10 000 unités par jour)
+- Chaque recherche consomme environ 100 unités
+- Nous recommandons de restreindre l'utilisation de votre clé API :
+  - Allez dans "Identifiants" > cliquez sur votre clé API
+  - Sous "Restrictions des requêtes API", sélectionnez "Restreindre la clé"
+  - Choisissez "YouTube Data API v3" dans la liste déroulante
+
+## Fonctionnalités de l'application
+
+- Création et partage de rooms pour regarder des vidéos en groupe
+- Recherche de vidéos YouTube
+- Chat en temps réel
+- Contrôles de lecture synchronisés
+- Gestion de playlist
+- Support pour différentes sources vidéo (YouTube, Vimeo, Dailymotion, fichiers directs)
+
+## Installation et démarrage
+
+```bash
+# Installer les dépendances
+npm install
+
+# Démarrer le serveur de développement
+npm run dev
+```
+
+L'application sera accessible à l'adresse : http://localhost:3000
 
 ## Déploiement sur Render
 

@@ -51,6 +51,260 @@ const addUrlBtn = document.getElementById('add-url-btn');
 const tabs = document.querySelectorAll('.tab-btn');
 const tabPanes = document.querySelectorAll('.tab-pane');
 
+// Fonction pour détecter si l'utilisateur est sur mobile
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+// Adapter l'interface pour les appareils mobiles
+function setupMobileInterface() {
+    if (!isMobileDevice()) return; // Ne rien faire si on n'est pas sur mobile
+    
+    console.log('📱 Interface mobile activée');
+    
+    // Ajouter une classe pour le CSS mobile
+    document.body.classList.add('mobile-device');
+    
+    // Ajuster la taille de la vidéo et des contrôles pour les appareils mobiles
+    const videoSection = document.querySelector('.video-section');
+    if (videoSection) {
+        videoSection.classList.add('mobile-optimized');
+    }
+    
+    // Adapter la sidebar pour le mobile (navigation par onglets simplifiée)
+    const sidebar = document.querySelector('.room-sidebar');
+    if (sidebar) {
+        sidebar.classList.add('mobile-sidebar');
+    }
+    
+    // Améliorer la taille des boutons pour les contrôles tactiles
+    document.querySelectorAll('.btn, button').forEach(btn => {
+        btn.classList.add('mobile-button');
+    });
+    
+    // Gérer le zoom tactile et les gestes
+    setupMobileTouchEvents();
+}
+
+// Configurer les événements tactiles pour mobile
+function setupMobileTouchEvents() {
+    // Éviter le zoom sur double-tap pour les contrôles vidéo
+    const videoControls = document.querySelector('.video-controls');
+    if (videoControls) {
+        videoControls.addEventListener('touchstart', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault(); // Empêcher le pinch-zoom
+            }
+        }, { passive: false });
+    }
+    
+    // Ajouter le swipe entre les onglets
+    const tabContent = document.querySelector('.tab-content');
+    if (tabContent) {
+        let startX, startY, endX, endY;
+        
+        tabContent.addEventListener('touchstart', function(e) {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+        
+        tabContent.addEventListener('touchend', function(e) {
+            endX = e.changedTouches[0].clientX;
+            endY = e.changedTouches[0].clientY;
+            
+            // Calculer la distance du swipe
+            const diffX = startX - endX;
+            const diffY = startY - endY;
+            
+            // Si le swipe est plus horizontal que vertical
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                // Swipe minimum de 50px
+                if (Math.abs(diffX) > 50) {
+                    const tabs = document.querySelectorAll('.tab-btn');
+                    const activeTabIndex = Array.from(tabs).findIndex(tab => tab.classList.contains('active'));
+                    
+                    if (diffX > 0) {
+                        // Swipe gauche, aller à l'onglet suivant
+                        const nextIndex = (activeTabIndex + 1) % tabs.length;
+                        tabs[nextIndex].click();
+                    } else {
+                        // Swipe droit, aller à l'onglet précédent
+                        const prevIndex = (activeTabIndex - 1 + tabs.length) % tabs.length;
+                        tabs[prevIndex].click();
+                    }
+                }
+            }
+        }, { passive: true });
+    }
+    
+    // Simplifier l'interface des modals sur mobile
+    document.querySelectorAll('.modal-content').forEach(modal => {
+        modal.classList.add('mobile-modal');
+    });
+    
+    // Configurer les boutons flottants mobile
+    setupMobileFloatingButtons();
+    
+    // Activer les gestes de double tap pour lire/mettre en pause sur mobile
+    const videoPlayer = document.getElementById('video-player');
+    if (videoPlayer) {
+        let lastTap = 0;
+        videoPlayer.addEventListener('touchend', function(e) {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            if (tapLength < 300 && tapLength > 0) {
+                // Double tap détecté - lire/mettre en pause
+                togglePlay();
+                e.preventDefault();
+            }
+            lastTap = currentTime;
+        });
+    }
+    
+    // Gestes de balayage pour le volume (swipe vertical)
+    if (videoPlayer) {
+        let startY, endY;
+        let currentVolume;
+        
+        videoPlayer.addEventListener('touchstart', function(e) {
+            startY = e.touches[0].clientY;
+            if (state.player) {
+                currentVolume = state.player.getVolume ? state.player.getVolume() : 100;
+            }
+        }, { passive: true });
+        
+        videoPlayer.addEventListener('touchmove', function(e) {
+            if (!state.player || e.touches.length > 1) return;
+            
+            endY = e.touches[0].clientY;
+            const diffY = startY - endY;
+            
+            // Si le swipe est significatif (plus de 10px)
+            if (Math.abs(diffY) > 10) {
+                // Calculer le changement de volume (1 = 1%)
+                const volumeChange = Math.round(diffY / 5);
+                const newVolume = Math.min(100, Math.max(0, currentVolume + volumeChange));
+                
+                // Définir le nouveau volume
+                if (state.player.setVolume) {
+                    state.player.setVolume(newVolume);
+                    if (volumeRange) {
+                        volumeRange.value = newVolume;
+                    }
+                    
+                    // Mettre à jour l'icône selon le volume
+                    updateVolumeIcon(newVolume);
+                    
+                    // Afficher brièvement une indication de volume
+                    showVolumeIndicator(newVolume);
+                }
+                
+                // Mettre à jour la référence pour le prochain mouvement
+                startY = endY;
+                currentVolume = newVolume;
+            }
+        }, { passive: true });
+    }
+}
+
+// Configurer les boutons flottants pour mobile
+function setupMobileFloatingButtons() {
+    const addVideoBtn = document.getElementById('mobile-add-video');
+    const toggleChatBtn = document.getElementById('mobile-toggle-chat');
+    const sidebar = document.querySelector('.room-sidebar');
+    
+    if (addVideoBtn) {
+        addVideoBtn.addEventListener('click', function() {
+            const addVideoModal = document.getElementById('add-video-modal');
+            if (addVideoModal) {
+                addVideoModal.style.display = 'flex';
+                // Focus sur l'input pour une saisie immédiate
+                setTimeout(() => {
+                    const videoUrlInput = document.getElementById('video-url');
+                    if (videoUrlInput) videoUrlInput.focus();
+                }, 300);
+            }
+        });
+    }
+    
+    if (toggleChatBtn && sidebar) {
+        // État initial : afficher la sidebar
+        let sidebarVisible = true;
+        
+        toggleChatBtn.addEventListener('click', function() {
+            sidebarVisible = !sidebarVisible;
+            
+            if (sidebarVisible) {
+                sidebar.classList.remove('sidebar-hidden');
+                sidebar.classList.add('sidebar-visible');
+                toggleChatBtn.innerHTML = '<i class="fas fa-times"></i>';
+            } else {
+                sidebar.classList.remove('sidebar-visible');
+                sidebar.classList.add('sidebar-hidden');
+                toggleChatBtn.innerHTML = '<i class="fas fa-comment"></i>';
+            }
+        });
+    }
+}
+
+// Afficher une indication de volume (pour les gestes sur mobile)
+function showVolumeIndicator(volume) {
+    // Créer ou obtenir l'indicateur de volume
+    let volumeIndicator = document.getElementById('volume-indicator');
+    
+    if (!volumeIndicator) {
+        volumeIndicator = document.createElement('div');
+        volumeIndicator.id = 'volume-indicator';
+        volumeIndicator.className = 'volume-indicator';
+        document.body.appendChild(volumeIndicator);
+        
+        // Ajouter des styles en ligne pour l'indicateur
+        volumeIndicator.style.position = 'fixed';
+        volumeIndicator.style.top = '50%';
+        volumeIndicator.style.left = '50%';
+        volumeIndicator.style.transform = 'translate(-50%, -50%)';
+        volumeIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        volumeIndicator.style.color = 'white';
+        volumeIndicator.style.padding = '1rem';
+        volumeIndicator.style.borderRadius = '5px';
+        volumeIndicator.style.fontSize = '1.5rem';
+        volumeIndicator.style.zIndex = '9999';
+        volumeIndicator.style.opacity = '0';
+        volumeIndicator.style.transition = 'opacity 0.3s ease';
+    }
+    
+    // Mettre à jour le contenu et afficher
+    let icon = 'fa-volume-high';
+    if (volume === 0) {
+        icon = 'fa-volume-xmark';
+    } else if (volume < 50) {
+        icon = 'fa-volume-low';
+    }
+    
+    volumeIndicator.innerHTML = `<i class="fas ${icon}"></i> ${volume}%`;
+    volumeIndicator.style.opacity = '1';
+    
+    // Masquer après un délai
+    clearTimeout(window.volumeIndicatorTimeout);
+    window.volumeIndicatorTimeout = setTimeout(() => {
+        volumeIndicator.style.opacity = '0';
+    }, 1500);
+}
+
+// Mettre à jour l'icône du volume en fonction du niveau
+function updateVolumeIcon(volume) {
+    const volumeBtn = document.getElementById('volume-btn');
+    if (!volumeBtn) return;
+    
+    if (volume === 0) {
+        volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+    } else if (volume < 50) {
+        volumeBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
+    } else {
+        volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+    }
+}
+
 // Initialiser l'application
 function init() {
     // Récupérer l'ID de la room depuis l'URL
@@ -88,6 +342,9 @@ function init() {
         // Rediriger vers la page d'accueil si aucun ID de room n'est spécifié
         window.location.href = 'index.html';
     }
+    
+    // Configurer l'interface mobile si nécessaire
+    setupMobileInterface();
 }
 
 // Fonction pour initialiser la salle après avoir défini le nom d'utilisateur
@@ -125,6 +382,9 @@ function initializeRoom() {
     
     // Initialiser les événements
     initEvents();
+
+    // Afficher la notification de bienvenue
+    showNotification(`Bienvenue dans ${state.room.name}!`, 'success');
 }
 
 // Afficher le modal pour demander le nom d'utilisateur
@@ -247,15 +507,61 @@ function initEvents() {
         fullscreenBtn.addEventListener('click', toggleFullscreen);
     }
     
-    // Événements de la recherche
-    if (searchBtn) {
-        searchBtn.addEventListener('click', searchVideos);
+    // Événements de la recherche - utiliser les identifiants corrects
+    console.log('Configuration des événements de recherche vidéo...');
+    
+    // Rechercher les deux variations possibles des éléments
+    const searchButton1 = document.getElementById('search-btn');
+    const searchButton2 = document.getElementById('searchVideoBtn');
+    const videoSearchInput1 = document.getElementById('video-search');
+    const videoSearchInput2 = document.getElementById('videoSearch');
+    
+    console.log('Éléments trouvés:', {
+        'search-btn': searchButton1,
+        'searchVideoBtn': searchButton2,
+        'video-search': videoSearchInput1,
+        'videoSearch': videoSearchInput2
+    });
+    
+    // Configurer les écouteurs pour toutes les variations
+    if (searchButton1) {
+        searchButton1.addEventListener('click', function() {
+            console.log('Clic sur le bouton search-btn');
+            const searchInput = document.getElementById('video-search');
+            if (searchInput && searchInput.value.trim()) {
+                performSearch(searchInput.value.trim());
+            }
+        });
     }
     
-    if (videoSearch) {
-        videoSearch.addEventListener('keypress', function(e) {
+    if (searchButton2) {
+        searchButton2.addEventListener('click', function() {
+            console.log('Clic sur le bouton searchVideoBtn');
+            const searchInput = document.getElementById('video-search');
+            if (searchInput && searchInput.value.trim()) {
+                performSearch(searchInput.value.trim());
+            }
+        });
+    }
+    
+    if (videoSearchInput1) {
+        videoSearchInput1.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                searchVideos();
+                console.log('Touche Enter sur video-search');
+                if (this.value.trim()) {
+                    performSearch(this.value.trim());
+                }
+            }
+        });
+    }
+    
+    if (videoSearchInput2) {
+        videoSearchInput2.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                console.log('Touche Enter sur videoSearch');
+                if (this.value.trim()) {
+                    performSearch(this.value.trim());
+                }
             }
         });
     }
@@ -345,6 +651,31 @@ function initEvents() {
             e.target.style.display = 'none';
         }
     });
+
+    // Écouteur pour le bouton de recherche
+    if (searchBtn) {
+        searchBtn.addEventListener('click', function() {
+            const searchInput = document.getElementById('video-search');
+            if (searchInput) {
+                const query = searchInput.value.trim();
+                if (query) {
+                    performSearch(query);
+                }
+            }
+        });
+    }
+
+    // Écouteur pour la recherche par touche Entrée
+    if (videoSearch) {
+        videoSearch.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const query = this.value.trim();
+                if (query) {
+                    performSearch(query);
+                }
+            }
+        });
+    }
 }
 
 // Initialiser la connexion en temps réel
@@ -731,116 +1062,160 @@ function sendMessage() {
     messageInput.value = '';
 }
 
-// Rechercher des vidéos
-function searchVideos() {
-    const query = videoSearch.value.trim();
-    if (!query) return;
-    
-    // Simuler une recherche YouTube (à remplacer par l'API YouTube)
-    searchResults.innerHTML = '<div class="loading">Recherche en cours...</div>';
-    
-    // Simuler un délai réseau
-    setTimeout(() => {
-        const fakeResults = [
-            {
-                id: 'dQw4w9WgXcQ',
-                title: 'Rick Astley - Never Gonna Give You Up',
-                channel: 'Rick Astley',
-                thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg'
-            },
-            {
-                id: '6AXEwt22_8Y',
-                title: `Résultat pour "${query}" - Vidéo 1`,
-                channel: 'Chaîne YouTube',
-                thumbnail: 'https://i.ytimg.com/vi/6AXEwt22_8Y/hqdefault.jpg'
-            },
-            {
-                id: 'xS0XiOLW_Qs',
-                title: `Résultat pour "${query}" - Vidéo 2`,
-                channel: 'Autre Chaîne',
-                thumbnail: 'https://i.ytimg.com/vi/xS0XiOLW_Qs/hqdefault.jpg'
-            }
-        ];
-        
-        displaySearchResults(fakeResults);
-    }, 1000);
-}
+// Appeler cette fonction au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM chargé');
+});
 
-// Afficher les résultats de recherche
-function displaySearchResults(results) {
-    if (!searchResults) return;
+// Afficher les résultats locaux en cas d'échec de l'API
+function showLocalResults(query, container) {
+    console.log(`Affichage de résultats locaux pour: "${query}"`);
     
-    searchResults.innerHTML = '';
+    // Base de données locale de vidéos populaires
+    const videosDatabase = [
+        {
+            id: 'dQw4w9WgXcQ',
+            title: 'Rick Astley - Never Gonna Give You Up',
+            thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
+            author: 'Rick Astley',
+            viewCount: '1.2B',
+            lengthSeconds: 212
+        },
+        {
+            id: 'kXYiU_JCYtU',
+            title: 'Linkin Park - Numb',
+            thumbnail: 'https://i.ytimg.com/vi/kXYiU_JCYtU/mqdefault.jpg',
+            author: 'Linkin Park',
+            viewCount: '1.9B',
+            lengthSeconds: 185
+        },
+        {
+            id: 'hTWKbfoikeg',
+            title: 'Nirvana - Smells Like Teen Spirit',
+            thumbnail: 'https://i.ytimg.com/vi/hTWKbfoikeg/mqdefault.jpg',
+            author: 'Nirvana',
+            viewCount: '1.5B',
+            lengthSeconds: 302
+        },
+        {
+            id: 'YR5ApYxkU-U',
+            title: 'Pink Floyd - Another Brick In The Wall',
+            thumbnail: 'https://i.ytimg.com/vi/YR5ApYxkU-U/mqdefault.jpg',
+            author: 'Pink Floyd',
+            viewCount: '830M',
+            lengthSeconds: 385
+        },
+        {
+            id: 'fJ9rUzIMcZQ',
+            title: 'Queen - Bohemian Rhapsody',
+            thumbnail: 'https://i.ytimg.com/vi/fJ9rUzIMcZQ/mqdefault.jpg',
+            author: 'Queen Official',
+            viewCount: '1.6B',
+            lengthSeconds: 355
+        },
+        {
+            id: 'fPO76Jlnz6c',
+            title: 'Avicii - Waiting For Love',
+            thumbnail: 'https://i.ytimg.com/vi/fPO76Jlnz6c/mqdefault.jpg',
+            author: 'Avicii',
+            viewCount: '940M',
+            lengthSeconds: 230
+        },
+        {
+            id: 'JGwWNGJdvx8',
+            title: 'Ed Sheeran - Shape of You',
+            thumbnail: 'https://i.ytimg.com/vi/JGwWNGJdvx8/mqdefault.jpg',
+            author: 'Ed Sheeran',
+            viewCount: '5.8B',
+            lengthSeconds: 263
+        },
+        {
+            id: 'qrO4YZeyl0I',
+            title: 'Lady Gaga - Bad Romance',
+            thumbnail: 'https://i.ytimg.com/vi/qrO4YZeyl0I/mqdefault.jpg',
+            author: 'Lady Gaga',
+            viewCount: '1.4B',
+            lengthSeconds: 322
+        },
+        {
+            id: 'pRpeEdMmmQ0',
+            title: 'Coldplay - Viva La Vida',
+            thumbnail: 'https://i.ytimg.com/vi/pRpeEdMmmQ0/mqdefault.jpg',
+            author: 'Coldplay',
+            viewCount: '820M',
+            lengthSeconds: 242
+        },
+        {
+            id: 'v2AC41dglnM',
+            title: 'AC/DC - Thunderstruck',
+            thumbnail: 'https://i.ytimg.com/vi/v2AC41dglnM/mqdefault.jpg',
+            author: 'AC/DC',
+            viewCount: '1B',
+            lengthSeconds: 292
+        },
+        {
+            id: 'Zi_XLOBDo_Y',
+            title: 'Michael Jackson - Billie Jean',
+            thumbnail: 'https://i.ytimg.com/vi/Zi_XLOBDo_Y/mqdefault.jpg',
+            author: 'Michael Jackson',
+            viewCount: '1.1B',
+            lengthSeconds: 294
+        },
+        {
+            id: 'XbGs_qK2PQA',
+            title: 'Eminem - Rap God',
+            thumbnail: 'https://i.ytimg.com/vi/XbGs_qK2PQA/mqdefault.jpg',
+            author: 'Eminem',
+            viewCount: '1.5B',
+            lengthSeconds: 363
+        },
+        {
+            id: 'YQHsXMglC9A',
+            title: 'Adele - Hello',
+            thumbnail: 'https://i.ytimg.com/vi/YQHsXMglC9A/mqdefault.jpg',
+            author: 'Adele',
+            viewCount: '3B',
+            lengthSeconds: 367
+        },
+        {
+            id: 'KQ6zr6kCPj8',
+            title: 'LMFAO - Party Rock Anthem',
+            thumbnail: 'https://i.ytimg.com/vi/KQ6zr6kCPj8/mqdefault.jpg',
+            author: 'LMFAO',
+            viewCount: '2.2B',
+            lengthSeconds: 262
+        },
+        {
+            id: 'iywaBOMvYLI',
+            title: 'Bruno Mars - 24K Magic',
+            thumbnail: 'https://i.ytimg.com/vi/iywaBOMvYLI/mqdefault.jpg',
+            author: 'Bruno Mars',
+            viewCount: '1.4B',
+            lengthSeconds: 217
+        }
+    ];
     
-    if (results.length === 0) {
-        searchResults.innerHTML = '<div class="no-results">Aucun résultat trouvé</div>';
-        return;
+    // Filtrer les vidéos qui correspondent à la recherche
+    const lowercaseQuery = query.toLowerCase();
+    let filteredVideos = videosDatabase.filter(video => 
+        video.title.toLowerCase().includes(lowercaseQuery) || 
+        video.author.toLowerCase().includes(lowercaseQuery)
+    );
+    
+    // Si aucun résultat filtré, montrer des vidéos aléatoires
+    if (filteredVideos.length === 0) {
+        console.log('Aucun résultat direct trouvé, affichage de vidéos aléatoires');
+        filteredVideos = videosDatabase.sort(() => 0.5 - Math.random()).slice(0, 5);
+    } else {
+        console.log(`${filteredVideos.length} résultats trouvés pour "${query}"`);
     }
     
-    results.forEach(video => {
-        const resultItem = document.createElement('div');
-        resultItem.classList.add('search-result');
-        
-        resultItem.innerHTML = `
-            <div class="result-thumbnail">
-                <img src="${video.thumbnail}" alt="${video.title}">
-            </div>
-            <div class="result-info">
-                <div class="result-title">${video.title}</div>
-                <div class="result-channel">${video.channel}</div>
-            </div>
-            <div class="result-actions">
-                <button class="btn btn-sm" data-id="${video.id}">
-                    <i class="fas fa-plus"></i> Ajouter
-                </button>
-            </div>
-        `;
-        
-        // Ajouter l'événement pour ajouter la vidéo
-        const addButton = resultItem.querySelector('button');
-        addButton.addEventListener('click', () => {
-            addVideoToPlaylist(null, video);
-            searchResults.innerHTML = '';
-            videoSearch.value = '';
-        });
-        
-        searchResults.appendChild(resultItem);
-    });
+    // Afficher les résultats
+    displaySearchResults(filteredVideos, container);
 }
 
-// Ajouter une vidéo à la playlist
-function addVideoToPlaylist(url, videoData = null) {
-    let videoId = null;
-    
-    if (url) {
-        // Extraire l'ID de la vidéo YouTube de l'URL
-        if (url.includes('youtube.com') || url.includes('youtu.be')) {
-            if (url.includes('v=')) {
-                videoId = url.split('v=')[1].split('&')[0];
-            } else if (url.includes('youtu.be/')) {
-                videoId = url.split('youtu.be/')[1].split('?')[0];
-            }
-        }
-        
-        if (!videoId) {
-            alert('URL YouTube invalide. Format attendu: https://www.youtube.com/watch?v=ID_VIDEO ou https://youtu.be/ID_VIDEO');
-            return;
-        }
-        
-        // Créer un objet vidéo (dans une vraie app, on récupérerait les détails via l'API YouTube)
-        videoData = {
-            id: videoId,
-            title: 'Vidéo YouTube',
-            channel: 'YouTube',
-            thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-        };
-    }
-    
-    if (!videoData) return;
-    
-    // Ajouter la vidéo à la playlist
-    state.playlist.push(videoData);
-    
+// Mettre à jour la playlist et notifier les autres utilisateurs
+function updatePlaylistAndNotify() {
     // Mettre à jour la playlist
     updatePlaylist();
     
@@ -865,46 +1240,72 @@ function addVideoToPlaylist(url, videoData = null) {
 
 // Mettre à jour l'affichage de la playlist
 function updatePlaylist() {
-    if (!playlistItems) return;
+    console.log('Mise à jour de l\'affichage de la playlist');
     
-    playlistItems.innerHTML = '';
+    const playlistContainer = document.getElementById('playlist-items');
+    if (!playlistContainer) {
+        console.error('Conteneur de playlist introuvable');
+        return;
+    }
     
-    state.playlist.forEach((video, index) => {
-        const item = document.createElement('li');
-        item.classList.add('playlist-item');
-        
-        if (index === state.currentVideoIndex) {
-            item.classList.add('active');
-        }
-        
-        item.innerHTML = `
-            <div class="item-thumbnail">
-                <img src="${video.thumbnail}" alt="${video.title}">
-                ${index === state.currentVideoIndex ? '<div class="now-playing"><i class="fas fa-play"></i></div>' : ''}
-            </div>
-            <div class="item-info">
-                <div class="item-title">${video.title}</div>
-                <div class="item-channel">${video.channel}</div>
-            </div>
-            <div class="item-actions">
-                <button class="play-btn" title="Lire">
-                    <i class="fas fa-play"></i>
-                </button>
-                <button class="remove-btn" title="Supprimer">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-        
-        // Ajouter les événements
-        const playBtn = item.querySelector('.play-btn');
-        const removeBtn = item.querySelector('.remove-btn');
-        
-        playBtn.addEventListener('click', () => playVideo(index));
-        removeBtn.addEventListener('click', () => removeFromPlaylist(index));
-        
-        playlistItems.appendChild(item);
-    });
+    // Vider le conteneur
+    playlistContainer.innerHTML = '';
+    
+    // S'assurer que la playlist existe
+    if (!state.playlist || !Array.isArray(state.playlist)) {
+        console.log('Playlist vide ou invalide');
+        playlistContainer.innerHTML = '<li class="playlist-empty">La playlist est vide</li>';
+        return;
+    }
+    
+    // Afficher chaque élément de la playlist
+    if (state.playlist.length === 0) {
+        playlistContainer.innerHTML = '<li class="playlist-empty">La playlist est vide</li>';
+    } else {
+        state.playlist.forEach((video, index) => {
+            console.log(`Ajout de la vidéo ${index} à l'affichage:`, video);
+            
+            const itemElement = document.createElement('li');
+            itemElement.className = 'playlist-item';
+            if (index === state.currentVideoIndex) {
+                itemElement.classList.add('active');
+            }
+            
+            const thumbnail = video.thumbnail || `https://i.ytimg.com/vi/${video.id}/mqdefault.jpg`;
+            const title = video.title || 'Vidéo sans titre';
+            
+            itemElement.innerHTML = `
+                <div class="playlist-item-thumbnail">
+                    <img src="${thumbnail}" alt="${title}">
+                </div>
+                <div class="playlist-item-info">
+                    <div class="playlist-item-title">${title}</div>
+                </div>
+                <div class="playlist-item-actions">
+                    <button class="play-video" title="Lire"><i class="fas fa-play"></i></button>
+                    <button class="remove-video" title="Supprimer"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+            
+            // Ajouter les écouteurs d'événements
+            const playButton = itemElement.querySelector('.play-video');
+            playButton.addEventListener('click', () => {
+                console.log(`Lecture de la vidéo ${index}`);
+                playVideo(index);
+            });
+            
+            const removeButton = itemElement.querySelector('.remove-video');
+            removeButton.addEventListener('click', () => {
+                console.log(`Suppression de la vidéo ${index}`);
+                removeFromPlaylist(index);
+            });
+            
+            // Ajouter l'élément à la liste
+            playlistContainer.appendChild(itemElement);
+        });
+    }
+    
+    console.log('Affichage de la playlist mis à jour');
 }
 
 // Supprimer une vidéo de la playlist
@@ -966,12 +1367,20 @@ function playVideo(index) {
     // Charger la vidéo dans le lecteur
     const video = state.playlist[index];
     
-    // Si on utilise l'API YouTube
-    if (state.player) {
-        state.player.loadVideoById(video.id);
-    } else {
-        // Créer le lecteur YouTube
+    // Nettoyer le lecteur existant
+    clearVideoPlayer();
+    
+    // Créer le lecteur en fonction du type de vidéo
+    if (video.type === 'youtube' || !video.type) {
         createYouTubePlayer(video.id);
+    } else if (video.type === 'vimeo') {
+        createVimeoPlayer(video.id);
+    } else if (video.type === 'dailymotion') {
+        createDailymotionPlayer(video.id);
+    } else if (video.type === 'direct') {
+        createDirectPlayer(video.url || video.id);
+    } else if (video.type === 'iframe') {
+        createIframePlayer(video.url || video.id);
     }
     
     // Envoyer la mise à jour aux autres participants
@@ -982,6 +1391,204 @@ function playVideo(index) {
                 videoIndex: index
             }
         }));
+    }
+}
+
+// Nettoyer le lecteur vidéo existant
+function clearVideoPlayer() {
+    if (!videoPlayer) return;
+    
+    // Supprimer l'ancien player s'il existe
+    if (state.player) {
+        try {
+            if (typeof state.player.destroy === 'function') {
+                state.player.destroy();
+            } else if (typeof state.player.remove === 'function') {
+                state.player.remove();
+            } else if (typeof state.player.pause === 'function') {
+                state.player.pause();
+            }
+        } catch (error) {
+            console.error('Erreur lors du nettoyage du lecteur:', error);
+        }
+        
+        state.player = null;
+    }
+    
+    // Vider complètement le conteneur
+    videoPlayer.innerHTML = '';
+}
+
+// Créer un lecteur pour les vidéos directes (MP4, WebM, OGG)
+function createDirectPlayer(url) {
+    if (!videoPlayer) return;
+    
+    const videoElement = document.createElement('video');
+    videoElement.id = 'direct-player';
+    videoElement.className = 'video-element';
+    videoElement.controls = false;
+    videoElement.autoplay = true;
+    videoElement.style.width = '100%';
+    videoElement.style.height = '100%';
+    
+    const sourceElement = document.createElement('source');
+    sourceElement.src = url;
+    
+    // Déterminer le type MIME
+    if (url.endsWith('.mp4')) {
+        sourceElement.type = 'video/mp4';
+    } else if (url.endsWith('.webm')) {
+        sourceElement.type = 'video/webm';
+    } else if (url.endsWith('.ogg')) {
+        sourceElement.type = 'video/ogg';
+    }
+    
+    videoElement.appendChild(sourceElement);
+    videoPlayer.appendChild(videoElement);
+    
+    // Stocker la référence au lecteur
+    state.player = videoElement;
+    
+    // Configurer les événements
+    videoElement.addEventListener('timeupdate', updateProgressBar);
+    videoElement.addEventListener('play', () => {
+        if (playPauseBtn) {
+            playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        }
+    });
+    videoElement.addEventListener('pause', () => {
+        if (playPauseBtn) {
+            playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+        }
+    });
+    videoElement.addEventListener('ended', skipVideo);
+}
+
+// Créer un lecteur pour les vidéos Vimeo
+function createVimeoPlayer(videoId) {
+    if (!videoPlayer) return;
+    
+    // Créer un iframe pour Vimeo
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://player.vimeo.com/video/${videoId}?autoplay=1`;
+    iframe.width = '100%';
+    iframe.height = '100%';
+    iframe.frameBorder = '0';
+    iframe.allow = 'autoplay; fullscreen';
+    iframe.allowFullscreen = true;
+    
+    // Ajouter une surcouche pour les contrôles
+    const overlayDiv = document.createElement('div');
+    overlayDiv.className = 'iframe-control-overlay';
+    overlayDiv.innerHTML = `
+        <div class="iframe-controls">
+            <button class="iframe-refresh-btn" title="Recharger"><i class="fas fa-sync-alt"></i></button>
+        </div>
+    `;
+    
+    // Ajouter les éléments au DOM
+    videoPlayer.appendChild(iframe);
+    videoPlayer.appendChild(overlayDiv);
+    
+    // Configurer le bouton de rechargement
+    const refreshBtn = overlayDiv.querySelector('.iframe-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            iframe.src = iframe.src;
+        });
+    }
+    
+    // Stocker la référence au lecteur
+    state.player = iframe;
+}
+
+// Créer un lecteur pour les vidéos Dailymotion
+function createDailymotionPlayer(videoId) {
+    if (!videoPlayer) return;
+    
+    // Créer un iframe pour Dailymotion
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.dailymotion.com/embed/video/${videoId}?autoplay=1`;
+    iframe.width = '100%';
+    iframe.height = '100%';
+    iframe.frameBorder = '0';
+    iframe.allow = 'autoplay; fullscreen';
+    iframe.allowFullscreen = true;
+    
+    // Ajouter une surcouche pour les contrôles
+    const overlayDiv = document.createElement('div');
+    overlayDiv.className = 'iframe-control-overlay';
+    overlayDiv.innerHTML = `
+        <div class="iframe-controls">
+            <button class="iframe-refresh-btn" title="Recharger"><i class="fas fa-sync-alt"></i></button>
+        </div>
+    `;
+    
+    // Ajouter les éléments au DOM
+    videoPlayer.appendChild(iframe);
+    videoPlayer.appendChild(overlayDiv);
+    
+    // Configurer le bouton de rechargement
+    const refreshBtn = overlayDiv.querySelector('.iframe-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            iframe.src = iframe.src;
+        });
+    }
+    
+    // Stocker la référence au lecteur
+    state.player = iframe;
+}
+
+// Créer un lecteur iframe générique pour les autres types de vidéos
+function createIframePlayer(url) {
+    if (!videoPlayer) return;
+    
+    // Tenter de créer un iframe
+    try {
+        // Créer l'iframe
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.width = '100%';
+        iframe.height = '100%';
+        iframe.frameBorder = '0';
+        iframe.allow = 'autoplay; fullscreen';
+        iframe.allowFullscreen = true;
+        
+        // Ajouter une surcouche pour les contrôles
+        const overlayDiv = document.createElement('div');
+        overlayDiv.className = 'iframe-control-overlay';
+        overlayDiv.innerHTML = `
+            <div class="iframe-controls">
+                <button class="iframe-refresh-btn" title="Recharger"><i class="fas fa-sync-alt"></i></button>
+            </div>
+        `;
+        
+        // Ajouter les éléments au DOM
+        videoPlayer.appendChild(iframe);
+        videoPlayer.appendChild(overlayDiv);
+        
+        // Configurer le bouton de rechargement
+        const refreshBtn = overlayDiv.querySelector('.iframe-refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                iframe.src = iframe.src;
+            });
+        }
+        
+        // Stocker la référence au lecteur
+        state.player = iframe;
+    } catch (error) {
+        console.error('Erreur lors de la création du lecteur iframe:', error);
+        
+        // Fallback: afficher un message d'erreur
+        videoPlayer.innerHTML = `
+            <div class="error-player">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Impossible de lire cette vidéo. L'URL n'est peut-être pas supportée.</p>
+                <p class="error-url">${url}</p>
+            </div>
+        `;
     }
 }
 
@@ -1140,46 +1747,104 @@ function seekVideo(e) {
     }
 }
 
-// Lecture/Pause
+// Basculer lecture/pause
 function togglePlay() {
     if (!state.player) return;
     
-    const isPlaying = state.player.getPlayerState() === YT.PlayerState.PLAYING;
-    
-    if (isPlaying) {
-        state.player.pauseVideo();
-        
-        // Envoyer l'événement pause aux autres utilisateurs
-        if (state.socket) {
-            console.log("Envoi de l'événement pause");
-            state.socket.emit('message', JSON.stringify({
-                type: 'video_control',
-                data: {
-                    action: 'pause',
-                    roomId: state.room.id,
-                    userId: state.user.id,
-                    time: state.player.getCurrentTime(),
-                    timestamp: Date.now()
+    try {
+        // Lecteur YouTube
+        if (state.player.getPlayerState) {
+            const playerState = state.player.getPlayerState();
+            
+            if (playerState === YT.PlayerState.PLAYING) {
+                state.player.pauseVideo();
+                
+                // Mettre à jour l'icône du bouton
+                if (playPauseBtn) {
+                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
                 }
-            }));
-        }
-    } else {
-        state.player.playVideo();
-        
-        // Envoyer l'événement play aux autres utilisateurs
-        if (state.socket) {
-            console.log("Envoi de l'événement play");
-            state.socket.emit('message', JSON.stringify({
-                type: 'video_control',
-                data: {
-                    action: 'play',
-                    roomId: state.room.id,
-                    userId: state.user.id,
-                    time: state.player.getCurrentTime(),
-                    timestamp: Date.now()
+                
+                // Envoyer la mise à jour aux autres participants
+                if (state.socket) {
+                    state.socket.send(JSON.stringify({
+                        type: 'video_control',
+                        data: {
+                            action: 'pause',
+                            userName: state.user.name
+                        }
+                    }));
                 }
-            }));
+            } else {
+                state.player.playVideo();
+                
+                // Mettre à jour l'icône du bouton
+                if (playPauseBtn) {
+                    playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                }
+                
+                // Envoyer la mise à jour aux autres participants
+                if (state.socket) {
+                    state.socket.send(JSON.stringify({
+                        type: 'video_control',
+                        data: {
+                            action: 'play',
+                            userName: state.user.name
+                        }
+                    }));
+                }
+            }
+            return;
         }
+        
+        // Lecteur HTML5 (pour vidéos directes)
+        if (state.player.paused !== undefined) {
+            if (state.player.paused) {
+                state.player.play();
+                
+                // Mettre à jour l'icône du bouton
+                if (playPauseBtn) {
+                    playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                }
+            } else {
+                state.player.pause();
+                
+                // Mettre à jour l'icône du bouton
+                if (playPauseBtn) {
+                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+                }
+            }
+            
+            // Envoyer la mise à jour aux autres participants
+            if (state.socket) {
+                state.socket.send(JSON.stringify({
+                    type: 'video_control',
+                    data: {
+                        action: state.player.paused ? 'pause' : 'play',
+                        userName: state.user.name
+                    }
+                }));
+            }
+            return;
+        }
+        
+        // Pour les iframes (Vimeo, Dailymotion, etc.), rafraîchir simplement l'iframe
+        if (state.player.tagName === 'IFRAME') {
+            // Pour les iframes, nous ne pouvons pas vraiment contrôler la lecture/pause 
+            // de manière fiable entre domaines, donc on propose juste de rafraîchir
+            const overlay = videoPlayer.querySelector('.iframe-control-overlay');
+            if (overlay) {
+                overlay.style.opacity = '1';
+                overlay.style.pointerEvents = 'auto';
+                
+                // Cacher après 3 secondes
+                setTimeout(() => {
+                    overlay.style.opacity = '0';
+                    overlay.style.pointerEvents = 'none';
+                }, 3000);
+            }
+        }
+    } catch (error) {
+        console.error('Erreur lors du contrôle de la lecture:', error);
     }
 }
 
@@ -1294,4 +1959,195 @@ function getRandomColor() {
 }
 
 // Initialiser au chargement de la page
-document.addEventListener('DOMContentLoaded', init); 
+document.addEventListener('DOMContentLoaded', init);
+
+// Attendre que le DOM soit chargé pour initialiser la recherche
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM chargé, initialisation des fonctionnalités avancées');
+    
+    // Récupérer les éléments de recherche
+    const searchInput = document.getElementById('video-search');
+    const searchBtn = document.getElementById('search-btn');
+    const searchLargeBtn = document.getElementById('search-video-btn-large');
+    const resultsContainer = document.getElementById('search-results');
+    
+    // Vérifier et logger les éléments trouvés
+    console.log('Éléments de recherche:', {
+        'searchInput': searchInput ? 'Trouvé' : 'Manquant',
+        'searchBtn': searchBtn ? 'Trouvé' : 'Manquant',
+        'searchLargeBtn': searchLargeBtn ? 'Trouvé' : 'Manquant',
+        'resultsContainer': resultsContainer ? 'Trouvé' : 'Manquant'
+    });
+    
+    // Ajouter les écouteurs d'événements pour la recherche
+    if (searchBtn) {
+        searchBtn.addEventListener('click', function() {
+            console.log('Clic sur le bouton de recherche');
+            searchVideos();
+        });
+    }
+    
+    if (searchLargeBtn) {
+        searchLargeBtn.addEventListener('click', function() {
+            console.log('Clic sur le bouton large de recherche');
+            searchVideos();
+        });
+    }
+    
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                console.log('Touche Enter pressée dans la recherche');
+                searchVideos();
+            }
+        });
+    }
+    
+    // Préremplir avec des suggestions si le conteneur de résultats existe
+    if (resultsContainer) {
+        // S'assurer qu'il est visible
+        resultsContainer.style.display = 'block';
+        
+        // Afficher des suggestions populaires par défaut
+        const popularSuggestions = [
+            {
+                id: 'fJ9rUzIMcZQ',
+                title: 'Queen - Bohemian Rhapsody',
+                thumbnail: 'https://i.ytimg.com/vi/fJ9rUzIMcZQ/mqdefault.jpg',
+                author: 'Queen Official',
+                viewCount: '1.6B',
+                lengthSeconds: 355
+            },
+            {
+                id: 'JGwWNGJdvx8',
+                title: 'Ed Sheeran - Shape of You',
+                thumbnail: 'https://i.ytimg.com/vi/JGwWNGJdvx8/mqdefault.jpg',
+                author: 'Ed Sheeran',
+                viewCount: '5.8B',
+                lengthSeconds: 263
+            }
+        ];
+        
+        // Ajouter un titre pour les suggestions
+        const suggestionsTitle = document.createElement('div');
+        suggestionsTitle.className = 'search-suggestions-title';
+        suggestionsTitle.textContent = 'Suggestions de vidéos';
+        resultsContainer.appendChild(suggestionsTitle);
+        
+        // Afficher les résultats
+        displaySearchResults(popularSuggestions, resultsContainer);
+    }
+});
+
+// Fonction pour afficher une notification
+function showNotification(message, type = 'info') {
+    // Créer l'élément de notification
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <span class="notification-message">${message}</span>
+        <button class="notification-close">&times;</button>
+    `;
+    
+    // Ajouter la notification au document
+    document.body.appendChild(notification);
+    
+    // Afficher la notification avec une animation
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 10);
+    
+    // Configurer le bouton de fermeture
+    const closeButton = notification.querySelector('.notification-close');
+    closeButton.addEventListener('click', () => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    });
+    
+    // Fermer automatiquement après 5 secondes
+    setTimeout(() => {
+        if (document.body.contains(notification)) {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }
+    }, 5000);
+}
+
+// Fonction pour effectuer une recherche de vidéos
+function performSearch(query) {
+    console.log(`Recherche de vidéos pour: "${query}"`);
+    
+    const resultsContainer = document.getElementById('search-results');
+    if (!resultsContainer) return;
+    
+    resultsContainer.innerHTML = '<div class="loading-spinner"></div>';
+    resultsContainer.style.display = 'block';
+    
+    fetch(`/api/search?q=${encodeURIComponent(query)}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erreur lors de la recherche');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.items && data.items.length > 0) {
+                showSearchResults(data.items, resultsContainer);
+            } else {
+                resultsContainer.innerHTML = '<p class="no-results">Aucun résultat trouvé</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            resultsContainer.innerHTML = '<p class="error">Erreur lors de la recherche</p>';
+            showLocalResults(query, resultsContainer);
+        });
+}
+
+// Fonction pour afficher les résultats de recherche
+function showSearchResults(results, container) {
+    container.innerHTML = '';
+    
+    results.forEach(video => {
+        const videoId = video.id?.videoId || video.id || '';
+        const title = video.snippet?.title || video.title || 'Titre inconnu';
+        const thumbnail = video.snippet?.thumbnails?.medium?.url || 
+                         video.snippet?.thumbnails?.default?.url || 
+                         `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+        
+        const resultElement = document.createElement('div');
+        resultElement.className = 'search-result';
+        resultElement.innerHTML = `
+            <div class="search-result-thumbnail">
+                <img src="${thumbnail}" alt="${title}">
+            </div>
+            <div class="search-result-info">
+                <h3>${title}</h3>
+            </div>
+            <div class="search-result-actions">
+                <button class="add-to-playlist" data-id="${videoId}" data-title="${title.replace(/"/g, '&quot;')}" data-thumbnail="${thumbnail}">
+                    <i class="fas fa-plus"></i> Ajouter
+                </button>
+            </div>
+        `;
+        
+        const addButton = resultElement.querySelector('.add-to-playlist');
+        addButton.addEventListener('click', function() {
+            const videoData = {
+                id: this.dataset.id,
+                title: this.dataset.title,
+                thumbnail: this.dataset.thumbnail
+            };
+            
+            addVideoToPlaylist(videoData);
+            this.innerHTML = '<i class="fas fa-check"></i> Ajouté';
+            this.disabled = true;
+        });
+        
+        container.appendChild(resultElement);
+    });
+} 
