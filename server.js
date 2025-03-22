@@ -104,6 +104,17 @@ io.on('connection', (socket) => {
                 
                 // Transmettre aux autres utilisateurs
                 socket.to(currentRoom).emit('video-seek', data.data);
+            } else if (data.type === 'video_control' && currentRoom) {
+                console.log(`Contrôle vidéo dans la room ${currentRoom}: ${data.data.action}`);
+                
+                // Trouver le nom de l'utilisateur pour le message
+                const user = rooms[currentRoom].participants.find(p => p.id === data.data.userId);
+                if (user) {
+                    data.data.userName = user.name;
+                }
+                
+                // Transmettre aux autres utilisateurs
+                socket.to(currentRoom).emit('video-control', data.data);
             }
         } catch (error) {
             console.error('Erreur de traitement du message:', error);

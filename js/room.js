@@ -501,6 +501,46 @@ function initRealTimeConnection() {
             });
         }
     });
+
+    // Contrôle de la vidéo (lecture/pause)
+    state.socket.on('video-control', (data) => {
+        console.log('Contrôle vidéo reçu:', data);
+        if (state.player) {
+            if (data.action === 'play') {
+                state.player.playVideo();
+                
+                // Mettre à jour l'icône du bouton
+                if (playPauseBtn) {
+                    playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                }
+                
+                // Ajouter un message système
+                addChatMessage({
+                    userId: 'system',
+                    username: 'Système',
+                    text: `${data.userName || 'Un utilisateur'} a lancé la lecture`,
+                    timestamp: new Date().toISOString(),
+                    color: '#2c3e50'
+                });
+            } else if (data.action === 'pause') {
+                state.player.pauseVideo();
+                
+                // Mettre à jour l'icône du bouton
+                if (playPauseBtn) {
+                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+                }
+                
+                // Ajouter un message système
+                addChatMessage({
+                    userId: 'system',
+                    username: 'Système',
+                    text: `${data.userName || 'Un utilisateur'} a mis en pause`,
+                    timestamp: new Date().toISOString(),
+                    color: '#2c3e50'
+                });
+            }
+        }
+    });
 }
 
 // Simuler des participants (à remplacer par une vraie implémentation WebRTC)
@@ -1108,8 +1148,38 @@ function togglePlay() {
     
     if (isPlaying) {
         state.player.pauseVideo();
+        
+        // Envoyer l'événement pause aux autres utilisateurs
+        if (state.socket) {
+            console.log("Envoi de l'événement pause");
+            state.socket.emit('message', JSON.stringify({
+                type: 'video_control',
+                data: {
+                    action: 'pause',
+                    roomId: state.room.id,
+                    userId: state.user.id,
+                    time: state.player.getCurrentTime(),
+                    timestamp: Date.now()
+                }
+            }));
+        }
     } else {
         state.player.playVideo();
+        
+        // Envoyer l'événement play aux autres utilisateurs
+        if (state.socket) {
+            console.log("Envoi de l'événement play");
+            state.socket.emit('message', JSON.stringify({
+                type: 'video_control',
+                data: {
+                    action: 'play',
+                    roomId: state.room.id,
+                    userId: state.user.id,
+                    time: state.player.getCurrentTime(),
+                    timestamp: Date.now()
+                }
+            }));
+        }
     }
 }
 
