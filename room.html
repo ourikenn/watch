@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WatchParty Room</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/room.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chargement de la bibliothèque Socket.IO -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- QR Code Generator -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+</head>
+<body class="room-page">
+    <header class="header room-header">
+        <div class="container">
+            <div class="logo">
+                <h1><a href="index.html">WatchParty</a></h1>
+            </div>
+            <div class="room-info">
+                <h2 id="room-name">Room #<span id="room-id">12345</span></h2>
+                <button id="share-btn" class="btn btn-sm"><i class="fas fa-share-alt"></i> Partager</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="room-container">
+        <div class="video-section">
+            <div class="video-player-container">
+                <div id="video-player">
+                    <!-- Le lecteur vidéo sera inséré ici par JavaScript -->
+                    <div class="placeholder-player">
+                        <i class="fas fa-play-circle"></i>
+                        <p>Ajoutez une vidéo pour commencer</p>
+                    </div>
+                </div>
+                <div class="video-controls">
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-filled"></div>
+                        </div>
+                        <div class="video-time">
+                            <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
+                        </div>
+                    </div>
+                    <div class="control-buttons">
+                        <button id="play-pause-btn"><i class="fas fa-play"></i></button>
+                        <button id="volume-btn"><i class="fas fa-volume-up"></i></button>
+                        <div class="volume-slider">
+                            <input type="range" id="volume-range" min="0" max="100" value="100">
+                        </div>
+                        <button id="skip-btn"><i class="fas fa-step-forward"></i></button>
+                        <button id="fullscreen-btn"><i class="fas fa-expand"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="room-sidebar">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="playlist">Liste de lecture</button>
+                <button class="tab-btn" data-tab="chat">Chat</button>
+                <button class="tab-btn" data-tab="participants">Participants</button>
+            </div>
+
+            <div class="tab-content">
+                <div id="playlist" class="tab-pane active">
+                    <div class="playlist-header">
+                        <h3>Liste de lecture</h3>
+                        <button id="add-video-btn" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Ajouter une vidéo</button>
+                    </div>
+                    <div class="playlist-search">
+                        <input type="text" id="video-search" placeholder="Rechercher une vidéo...">
+                        <button id="search-btn" class="btn btn-sm"><i class="fas fa-search"></i></button>
+                    </div>
+                    <div class="search-results" id="search-results">
+                        <!-- Les résultats de recherche seront insérés ici -->
+                    </div>
+                    <ul class="playlist-items" id="playlist-items">
+                        <!-- Les éléments de la liste de lecture seront insérés ici -->
+                    </ul>
+                </div>
+
+                <div id="chat" class="tab-pane">
+                    <div class="chat-messages" id="chat-messages">
+                        <!-- Les messages du chat seront insérés ici -->
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="message-input" placeholder="Envoyer un message...">
+                        <button id="send-btn" class="btn btn-sm btn-primary"><i class="fas fa-paper-plane"></i></button>
+                        <button id="emoji-btn" class="btn btn-sm"><i class="fas fa-smile"></i></button>
+                    </div>
+                    <div class="emoji-picker" id="emoji-picker">
+                        <!-- Les emojis seront insérés ici -->
+                    </div>
+                </div>
+
+                <div id="participants" class="tab-pane">
+                    <h3>Participants</h3>
+                    <ul class="participants-list" id="participants-list">
+                        <!-- Les participants seront insérés ici -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="share-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Partager cette room</h2>
+            <div class="share-options">
+                <div class="share-link">
+                    <p>Lien de la room:</p>
+                    <div class="link-container">
+                        <input type="text" id="room-link" readonly>
+                        <button id="copy-link-btn" class="btn btn-sm"><i class="fas fa-copy"></i></button>
+                    </div>
+                </div>
+                <div class="qr-code">
+                    <p>Scanner ce QR code avec votre smartphone:</p>
+                    <div id="qr-code-container"></div>
+                </div>
+                <div class="social-share">
+                    <p>Partager sur:</p>
+                    <div class="social-buttons">
+                        <button class="social-btn facebook"><i class="fab fa-facebook-f"></i></button>
+                        <button class="social-btn twitter"><i class="fab fa-twitter"></i></button>
+                        <button class="social-btn whatsapp"><i class="fab fa-whatsapp"></i></button>
+                        <button class="social-btn email"><i class="fas fa-envelope"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-video-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Ajouter une vidéo</h2>
+            <div class="add-video-options">
+                <div class="video-url">
+                    <p>URL de la vidéo (YouTube, Vimeo, etc.):</p>
+                    <input type="text" id="video-url" placeholder="https://www.youtube.com/watch?v=...">
+                </div>
+                <button id="add-url-btn" class="btn btn-primary">Ajouter à la playlist</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/room.js"></script>
+</body>
+</html> 

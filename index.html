@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WatchParty - Regardez des vidéos ensemble</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <h1>WatchParty</h1>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="index.html" class="active">Accueil</a></li>
+                    <li><a href="#about">À propos</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h2>Regardez des vidéos avec vos amis en temps réel</h2>
+                <p>Créez une room, invitez vos amis et profitez ensemble de vos vidéos préférées</p>
+                <div class="room-actions">
+                    <button id="create-room-btn" class="btn btn-primary">Créer une room</button>
+                    <div class="join-room-form">
+                        <input type="text" id="join-room-id" placeholder="ID de la room">
+                        <button id="join-room-btn" class="btn">Rejoindre</button>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-image">
+                <img src="img/hero-image.svg" alt="WatchParty illustration">
+            </div>
+        </div>
+    </main>
+
+    <section class="features">
+        <div class="container">
+            <h2>Fonctionnalités</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <i class="fas fa-video"></i>
+                    <h3>Vidéos synchronisées</h3>
+                    <p>Tous les participants voient la même chose au même moment</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-comments"></i>
+                    <h3>Chat en temps réel</h3>
+                    <p>Discutez avec les autres participants pendant la vidéo</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-list"></i>
+                    <h3>Liste de lecture</h3>
+                    <p>Ajoutez vos vidéos préférées de YouTube et autres plateformes</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-user-friends"></i>
+                    <h3>Multi-utilisateurs</h3>
+                    <p>Invitez autant d'amis que vous voulez dans votre room</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h3>WatchParty</h3>
+                    <p>© 2023 WatchParty. Tous droits réservés.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Liens utiles</h4>
+                    <ul>
+                        <li><a href="#about">À propos</a></li>
+                        <li><a href="#terms">Conditions d'utilisation</a></li>
+                        <li><a href="#privacy">Politique de confidentialité</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modal de configuration du serveur -->
+    <div id="server-config-modal" class="modal">
+        <div class="modal-content">
+            <h2>Configuration du serveur</h2>
+            <p>Entrez l'URL du serveur WebSocket (laissez vide pour utiliser le serveur local) :</p>
+            <div class="server-form">
+                <input type="text" id="server-url" placeholder="https://votre-serveur-websocket.com">
+                <button id="save-server-btn" class="btn btn-primary">Enregistrer</button>
+            </div>
+            <small>Note: Cette configuration sera sauvegardée dans votre navigateur.</small>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html> 
