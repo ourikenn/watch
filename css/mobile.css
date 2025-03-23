@@ -16,7 +16,7 @@
     min-height: 44px;
 }
 
-/* REFONTE COMPLÈTE STYLE APPLICATION MOBILE */
+/* REFONTE ADAPTIVE DE L'INTERFACE MOBILE */
 
 /* Structure principale */
 .mobile-device.room-page {
@@ -117,80 +117,134 @@
     background-color: var(--primary-color);
 }
 
-/* Conteneur principal */
-.mobile-device .mobile-content {
+/* Adaptation du conteneur vidéo pour mobile */
+.mobile-device .mobile-video-container {
     position: fixed;
     top: 50px;
     left: 0;
-    width: 100vw;
-    height: calc(100vh - 110px); /* Hauteur totale - (header + nav) */
-    overflow: hidden;
+    width: 100%;
+    height: 40vh; /* Défaut en mode portrait */
     z-index: 10;
-    background-color: #1f1f1f;
-}
-
-/* Les différentes pages */
-.mobile-device .mobile-page {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: none;
-    flex-direction: column;
-    background-color: #1f1f1f;
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
-.mobile-device .mobile-page.active {
-    display: flex;
-    visibility: visible;
-    opacity: 1;
-    z-index: 1;
-}
-
-/* PAGE VIDEO */
-.mobile-device .video-page {
     background-color: #000;
-}
-
-.mobile-device .video-page .video-section {
-    width: 100%;
-    height: 100%;
-    position: relative;
-}
-
-.mobile-device .video-player-container {
-    width: 100%;
-    height: 100%;
-    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-.mobile-device #video-player,
-.mobile-device .video-page #video-player {
+/* En mode paysage, utiliser la hauteur complète */
+.mobile-device.landscape .mobile-video-container {
+    height: calc(100vh - 50px);
+}
+
+/* S'assurer que la vidéo est bien dimensionnée */
+.mobile-device .video-section,
+.mobile-device .video-player-container,
+.mobile-device #video-player {
     width: 100% !important;
     height: 100% !important;
-    background-color: #000;
     display: block !important;
 }
 
-.mobile-device .placeholder-player {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    color: rgba(255,255,255,0.5);
+/* Adaptation de la sidebar pour mobile */
+.mobile-device .room-sidebar {
+    position: fixed;
+    top: calc(40vh + 50px); /* Après le conteneur vidéo en mode portrait */
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 40vh - 50px - 60px); /* Reste de l'écran moins la navbar */
+    z-index: 10;
+    background-color: #1f1f1f;
+    overflow: hidden;
 }
 
-.mobile-device .placeholder-player i {
-    font-size: 40px;
-    margin-bottom: 10px;
+/* En mode paysage, cacher la sidebar par défaut */
+.mobile-device.landscape .room-sidebar {
+    display: none;
+}
+
+/* Ajustements pour les onglets */
+.mobile-device .tabs {
+    display: none; /* Cacher les onglets originaux car on utilise la navigation du bas */
+}
+
+.mobile-device .tab-content {
+    height: 100%;
+}
+
+.mobile-device .tab-pane {
+    height: 100%;
+    padding-bottom: 60px; /* Espace pour la navigation */
+    overflow-y: auto;
+}
+
+/* Style du chat flottant */
+.mobile-device .chat-float-btn {
+    position: fixed;
+    bottom: 70px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    z-index: 89;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    border: none;
+}
+
+.mobile-device .close-float-chat {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    z-index: 2;
+    display: none;
+}
+
+/* Chat flottant activé */
+.mobile-device.show-floating-chat .room-sidebar {
+    z-index: 100;
+    display: block !important;
+    animation: slideUp 0.3s forwards;
+    box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
+}
+
+.mobile-device.show-floating-chat #chat {
+    display: block !important;
+}
+
+.mobile-device.show-floating-chat .close-float-chat {
+    display: block;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+/* En mode paysage et chat flottant */
+.mobile-device.landscape.show-floating-chat .room-sidebar {
+    position: fixed;
+    top: 50px;
+    right: 0;
+    left: auto;
+    width: 40%;
+    height: calc(100vh - 50px - 60px);
+}
+
+.mobile-device.landscape.show-floating-chat .mobile-video-container {
+    width: 60%;
 }
 
 /* Contrôles vidéo */
@@ -250,29 +304,16 @@
     justify-content: center;
 }
 
-/* Volume slider */
+/* Volume slider caché sur mobile */
 .mobile-device .volume-slider {
-    display: none; /* Cacher sur mobile */
+    display: none;
 }
 
-/* PAGE PLAYLIST */
-.mobile-device .playlist-page {
-    background-color: #1f1f1f;
+/* Playlist adaptée */
+.mobile-device #playlist {
     display: flex;
     flex-direction: column;
-}
-
-/* S'assurer que le contenu de la playlist est visible */
-.mobile-device .playlist-page #playlist {
-    width: 100% !important;
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column;
-    overflow: hidden;
-    background-color: #1f1f1f;
-    position: relative !important;
-    left: auto !important;
-    top: auto !important;
+    height: 100%;
 }
 
 .mobile-device .playlist-header {
@@ -295,31 +336,6 @@
     border-top: 1px solid rgba(255,255,255,0.05);
 }
 
-.mobile-device .playlist-search input {
-    flex: 1;
-    height: 44px;
-    border-radius: 22px;
-    padding: 0 15px;
-    margin-right: 10px;
-    font-size: 16px;
-}
-
-.mobile-device .playlist-search button {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.mobile-device .search-results {
-    max-height: 40vh;
-    overflow-y: auto;
-    background-color: #232323;
-    border-top: 1px solid rgba(255,255,255,0.05);
-}
-
 .mobile-device .playlist-items {
     flex: 1;
     overflow-y: auto;
@@ -333,199 +349,18 @@
     border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
-.mobile-device .playlist-item-title {
-    font-size: 16px;
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-
-.mobile-device .playlist-item-channel {
-    font-size: 12px;
-    color: rgba(255,255,255,0.6);
-}
-
-.mobile-device .playlist-item-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 5px;
-}
-
-.mobile-device .playlist-item-actions button {
-    margin-left: 10px;
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.7);
-    font-size: 18px;
-}
-
-/* PAGE PARTICIPANTS */
-.mobile-device .participants-page {
-    background-color: #1f1f1f;
+/* Chat adapté */
+.mobile-device #chat {
     display: flex;
     flex-direction: column;
-    padding: 15px;
-}
-
-/* S'assurer que le contenu des participants est visible */
-.mobile-device .participants-page #participants {
-    width: 100% !important;
-    height: 100% !important;
-    display: block !important;
-    overflow: auto;
-    position: relative !important;
-    left: auto !important;
-    top: auto !important;
-}
-
-.mobile-device .participants-page h3 {
-    margin: 0 0 15px 0;
-    font-size: 18px;
-}
-
-.mobile-device .participants-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    overflow-y: auto;
-    flex: 1;
-}
-
-.mobile-device .participant {
-    display: flex;
-    align-items: center;
-    padding: 15px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-.mobile-device .participant-avatar {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    overflow: hidden;
-    margin-right: 15px;
-}
-
-.mobile-device .participant-avatar img {
-    width: 100%;
     height: 100%;
-    object-fit: cover;
-}
-
-.mobile-device .participant-name {
-    font-size: 16px;
-    font-weight: bold;
-}
-
-.mobile-device .participant-status {
-    font-size: 12px;
-    color: rgba(255,255,255,0.6);
-    margin-top: 5px;
-}
-
-/* CHAT FLOTTANT */
-.mobile-device .chat-container {
-    position: fixed;
-    bottom: 60px; /* Au-dessus de la navigation */
-    left: 0;
-    width: 100%;
-    height: 0;
-    background-color: #272727;
-    z-index: 100;
-    overflow: hidden;
-    transition: height 0.3s ease;
-    box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
-    display: flex;
-    flex-direction: column;
-}
-
-.mobile-device .chat-container.open {
-    height: 60vh;
-}
-
-/* S'assurer que le contenu du chat est visible */
-.mobile-device .chat-page #chat {
-    width: 100% !important;
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative !important;
-    left: auto !important;
-    top: auto !important;
-}
-
-.mobile-device .chat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 15px;
-    background-color: #333;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.mobile-device .chat-header h3 {
-    margin: 0;
-    font-size: 16px;
-}
-
-.mobile-device .chat-header button {
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.7);
-    font-size: 18px;
-    padding: 5px;
+    position: relative;
 }
 
 .mobile-device .chat-messages {
     flex: 1;
     overflow-y: auto;
     padding: 15px;
-    background-color: #1f1f1f;
-}
-
-.mobile-device .message {
-    margin-bottom: 15px;
-    display: flex;
-    align-items: flex-start;
-}
-
-.mobile-device .message-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    overflow: hidden;
-    margin-right: 10px;
-    flex-shrink: 0;
-}
-
-.mobile-device .message-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.mobile-device .message-content-wrapper {
-    flex: 1;
-    min-width: 0;
-}
-
-.mobile-device .message-sender {
-    font-weight: bold;
-    font-size: 14px;
-    margin-bottom: 3px;
-}
-
-.mobile-device .message-content {
-    font-size: 14px;
-    line-height: 1.4;
-    word-break: break-word;
-}
-
-.mobile-device .message-time {
-    font-size: 11px;
-    color: rgba(255,255,255,0.5);
-    margin-top: 3px;
-    text-align: right;
 }
 
 .mobile-device .chat-input {
@@ -536,67 +371,15 @@
     border-top: 1px solid rgba(255,255,255,0.1);
 }
 
-.mobile-device .chat-input input {
-    flex: 1;
-    height: 44px;
-    border-radius: 22px;
-    padding: 0 15px;
-    margin-right: 10px;
-    font-size: 16px;
+.mobile-device .message {
+    margin-bottom: 15px;
 }
 
-.mobile-device .chat-input button {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    margin-left: 5px;
-}
-
-/* BOUTONS FLOTTANTS D'ACTION */
-.mobile-device .mobile-floating-controls {
-    position: fixed;
-    bottom: 70px; /* Juste au-dessus de la navigation */
-    right: 20px;
-    display: flex;
-    flex-direction: column;
-    z-index: 80;
-}
-
-.mobile-device .mobile-floating-btn {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background-color: var(--primary-color);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    margin-top: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    border: none;
-}
-
-.mobile-device .chat-toggle-btn {
-    position: fixed;
-    bottom: 70px;
-    left: 20px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background-color: var(--primary-color);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    z-index: 80;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    border: none;
+/* Participants adaptés */
+.mobile-device #participants {
+    padding: 15px;
+    height: 100%;
+    overflow-y: auto;
 }
 
 /* MODALES SUR MOBILE */
@@ -624,57 +407,6 @@
 /* Ajustements pour l'ajout de vidéo */
 .mobile-device #add-video-modal .modal-content {
     padding-top: 50px;
-}
-
-.mobile-device .add-video-options {
-    display: flex;
-    flex-direction: column;
-}
-
-.mobile-device .video-url {
-    margin-bottom: 20px;
-}
-
-.mobile-device .video-url input {
-    width: 100%;
-    height: 44px;
-    border-radius: 22px;
-    padding: 0 15px;
-    margin: 10px 0;
-    font-size: 16px;
-}
-
-.mobile-device .video-search-section h3 {
-    margin-top: 20px;
-    margin-bottom: 10px;
-}
-
-/* AJUSTEMENTS SELON L'ORIENTATION */
-
-/* Mode paysage */
-@media (orientation: landscape) {
-    .mobile-device .video-player-container {
-        height: 100%;
-    }
-    
-    .mobile-device .chat-container.open {
-        height: 70vh;
-    }
-
-    /* En mode paysage, on peut montrer une petite zone de discussion à côté */
-    .mobile-device.show-chat-landscape .video-page {
-        width: 65%;
-    }
-    
-    .mobile-device.show-chat-landscape .chat-container {
-        position: fixed;
-        top: 50px;
-        right: 0;
-        left: auto;
-        width: 35%;
-        height: calc(100vh - 110px);
-        bottom: auto;
-    }
 }
 
 /* Styles pour iOS */
