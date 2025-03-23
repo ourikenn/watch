@@ -51,6 +51,9 @@ const addUrlBtn = document.getElementById('add-url-btn');
 const tabs = document.querySelectorAll('.tab-btn');
 const tabPanes = document.querySelectorAll('.tab-pane');
 
+// Clé API YouTube
+const YOUTUBE_API_KEY = 'AIzaSyB5hrbUf0i_KkPjzAVefz8-fzRzlgFPLro';
+
 // Fonction pour détecter si l'utilisateur est sur mobile
 function isMobileDevice() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -507,61 +510,26 @@ function initEvents() {
         fullscreenBtn.addEventListener('click', toggleFullscreen);
     }
     
-    // Événements de la recherche - utiliser les identifiants corrects
-    console.log('Configuration des événements de recherche vidéo...');
+    // Configuration de la recherche vidéo YouTube
+    console.log('Configuration des événements de recherche vidéo YouTube...');
     
-    // Rechercher les deux variations possibles des éléments
-    const searchButton1 = document.getElementById('search-btn');
-    const searchButton2 = document.getElementById('searchVideoBtn');
-    const videoSearchInput1 = document.getElementById('video-search');
-    const videoSearchInput2 = document.getElementById('videoSearch');
-    
-    console.log('Éléments trouvés:', {
-        'search-btn': searchButton1,
-        'searchVideoBtn': searchButton2,
-        'video-search': videoSearchInput1,
-        'videoSearch': videoSearchInput2
-    });
-    
-    // Configurer les écouteurs pour toutes les variations
-    if (searchButton1) {
-        searchButton1.addEventListener('click', function() {
-            console.log('Clic sur le bouton search-btn');
-            const searchInput = document.getElementById('video-search');
-            if (searchInput && searchInput.value.trim()) {
-                performSearch(searchInput.value.trim());
-            }
-        });
-    }
-    
-    if (searchButton2) {
-        searchButton2.addEventListener('click', function() {
-            console.log('Clic sur le bouton searchVideoBtn');
-            const searchInput = document.getElementById('video-search');
-            if (searchInput && searchInput.value.trim()) {
-                performSearch(searchInput.value.trim());
-            }
-        });
-    }
-    
-    if (videoSearchInput1) {
-        videoSearchInput1.addEventListener('keypress', function(e) {
+    if (videoSearch) {
+        videoSearch.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                console.log('Touche Enter sur video-search');
-                if (this.value.trim()) {
-                    performSearch(this.value.trim());
+                console.log('Touche Enter sur le champ de recherche');
+                const query = this.value.trim();
+                if (query) {
+                    performSearch(query);
                 }
             }
         });
     }
     
-    if (videoSearchInput2) {
-        videoSearchInput2.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                console.log('Touche Enter sur videoSearch');
-                if (this.value.trim()) {
-                    performSearch(this.value.trim());
-                }
+    if (searchBtn) {
+        searchBtn.addEventListener('click', function() {
+            console.log('Clic sur le bouton de recherche vidéo');
+            if (videoSearch && videoSearch.value.trim()) {
+                performSearch(videoSearch.value.trim());
             }
         });
     }
@@ -623,29 +591,73 @@ function initEvents() {
     
     // Événements du modal d'ajout de vidéo
     if (addVideoBtn) {
-        addVideoBtn.addEventListener('click', () => {
+        addVideoBtn.addEventListener('click', function() {
+            // Vider le champ
+            if (videoUrl) {
+                videoUrl.value = '';
+            }
+            // Afficher le modal
             if (addVideoModal) {
                 addVideoModal.style.display = 'flex';
+                // Focus sur le champ d'URL
+                if (videoUrl) {
+                    setTimeout(() => videoUrl.focus(), 100);
+                }
             }
         });
     }
     
     if (addUrlBtn) {
-        addUrlBtn.addEventListener('click', () => {
-            addVideoToPlaylist(videoUrl.value);
-            addVideoModal.style.display = 'none';
-            videoUrl.value = '';
+        addUrlBtn.addEventListener('click', function() {
+            const url = videoUrl.value.trim();
+            if (url) {
+                // Extraire l'ID de la vidéo et ajouter à la playlist
+                const videoId = extractVideoId(url);
+                if (videoId) {
+                    // Ajouter à la playlist
+                    state.playlist.push({
+                        id: videoId.id,
+                        type: videoId.type,
+                        title: `Vidéo ajoutée manuellement`,
+                        thumbnail: `https://img.youtube.com/vi/${videoId.id}/mqdefault.jpg`,
+                        author: 'Ajout manuel',
+                        url: url // Stocker l'URL complète également
+                    });
+                    
+                    // Mettre à jour la playlist et notifier les autres
+                    updatePlaylistAndNotify();
+                    
+                    // Fermer le modal
+                    addVideoModal.style.display = 'none';
+                    
+                    // Vider le champ
+                    videoUrl.value = '';
+                    
+                    // Si c'est la première vidéo, la lire
+                    if (state.playlist.length === 1) {
+                        playVideo(0);
+                    }
+                } else {
+                    alert('URL de vidéo non reconnue. Veuillez utiliser une URL de YouTube, Vimeo, Dailymotion, ou une URL directe vers un fichier vidéo.');
+                }
+            } else {
+                alert('Veuillez entrer une URL valide');
+            }
         });
     }
     
-    // Fermer les modals quand on clique sur le X
-    document.querySelectorAll('.close').forEach(closeBtn => {
+    // Gérer les boutons de fermeture dans les modals
+    document.querySelectorAll('.modal .close').forEach(closeBtn => {
         closeBtn.addEventListener('click', function() {
-            this.closest('.modal').style.display = 'none';
+            // Trouver le modal parent
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
         });
     });
     
-    // Fermer les modals quand on clique en dehors
+    // Fermer les modals en cliquant en dehors du contenu
     window.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal')) {
             e.target.style.display = 'none';
@@ -669,10 +681,21 @@ function initEvents() {
     if (videoSearch) {
         videoSearch.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
+                console.log('Touche Enter détectée sur le champ de recherche');
                 const query = this.value.trim();
                 if (query) {
                     performSearch(query);
                 }
+            }
+        });
+    }
+
+    // Gérer l'ajout d'URL via le champ "Enter"
+    if (videoUrl) {
+        videoUrl.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && addUrlBtn) {
+                // Simuler un clic sur le bouton d'ajout
+                addUrlBtn.click();
             }
         });
     }
@@ -2077,77 +2100,138 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
-// Fonction pour effectuer une recherche de vidéos
+// Fonction pour effectuer une recherche de vidéos YouTube
 function performSearch(query) {
-    console.log(`Recherche de vidéos pour: "${query}"`);
+    console.log(`Recherche YouTube pour: "${query}"`);
     
     const resultsContainer = document.getElementById('search-results');
     if (!resultsContainer) return;
     
-    resultsContainer.innerHTML = '<div class="loading-spinner"></div>';
+    resultsContainer.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Recherche en cours...</div>';
     resultsContainer.style.display = 'block';
     
-    fetch(`/api/search?q=${encodeURIComponent(query)}`)
+    // Utiliser l'API YouTube pour la recherche
+    fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=10&key=${YOUTUBE_API_KEY}`)
         .then(response => {
             if (!response.ok) {
-                throw new Error('Erreur lors de la recherche');
+                throw new Error('Erreur lors de la recherche YouTube');
             }
             return response.json();
         })
         .then(data => {
             if (data.items && data.items.length > 0) {
-                showSearchResults(data.items, resultsContainer);
+                console.log('Résultats YouTube reçus:', data.items.length);
+                // Convertir les résultats au format attendu par showSearchResults
+                const formattedResults = data.items.map(item => ({
+                    id: item.id.videoId,
+                    title: item.snippet.title,
+                    thumbnail: item.snippet.thumbnails.medium.url,
+                    author: item.snippet.channelTitle,
+                    type: 'youtube'
+                }));
+                showSearchResults(formattedResults, resultsContainer);
             } else {
-                resultsContainer.innerHTML = '<p class="no-results">Aucun résultat trouvé</p>';
+                resultsContainer.innerHTML = '<div class="no-results">Aucun résultat trouvé.</div>';
             }
         })
         .catch(error => {
-            console.error('Erreur:', error);
-            resultsContainer.innerHTML = '<p class="error">Erreur lors de la recherche</p>';
-            showLocalResults(query, resultsContainer);
+            console.error('Erreur API YouTube:', error);
+            resultsContainer.innerHTML = `<div class="error">Erreur lors de la recherche: ${error.message}</div>`;
         });
 }
 
 // Fonction pour afficher les résultats de recherche
 function showSearchResults(results, container) {
+    // Vider le conteneur
     container.innerHTML = '';
     
-    results.forEach(video => {
-        const videoId = video.id?.videoId || video.id || '';
-        const title = video.snippet?.title || video.title || 'Titre inconnu';
-        const thumbnail = video.snippet?.thumbnails?.medium?.url || 
-                         video.snippet?.thumbnails?.default?.url || 
-                         `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-        
+    // Titre des résultats
+    const resultsTitle = document.createElement('div');
+    resultsTitle.className = 'search-suggestions-title';
+    resultsTitle.textContent = 'Résultats de recherche';
+    container.appendChild(resultsTitle);
+    
+    // Afficher chaque résultat
+    results.forEach(result => {
         const resultElement = document.createElement('div');
         resultElement.className = 'search-result';
+        
+        // Créer la structure HTML pour le résultat
         resultElement.innerHTML = `
             <div class="search-result-thumbnail">
-                <img src="${thumbnail}" alt="${title}">
+                <img src="${result.thumbnail}" alt="${result.title}">
+                <span class="video-duration">${result.duration || ''}</span>
             </div>
             <div class="search-result-info">
-                <h3>${title}</h3>
+                <h3>${result.title}</h3>
+                <div class="video-author">${result.author || 'YouTube'}</div>
+                <div class="video-views">${result.viewCount || ''}</div>
             </div>
             <div class="search-result-actions">
-                <button class="add-to-playlist" data-id="${videoId}" data-title="${title.replace(/"/g, '&quot;')}" data-thumbnail="${thumbnail}">
+                <button class="add-to-playlist" data-id="${result.id}" data-type="${result.type || 'youtube'}">
                     <i class="fas fa-plus"></i> Ajouter
                 </button>
             </div>
         `;
         
+        // Ajouter l'événement au bouton d'ajout
         const addButton = resultElement.querySelector('.add-to-playlist');
         addButton.addEventListener('click', function() {
-            const videoData = {
-                id: this.dataset.id,
-                title: this.dataset.title,
-                thumbnail: this.dataset.thumbnail
-            };
+            // Récupérer les données de la vidéo
+            const videoId = this.dataset.id;
+            const videoType = this.dataset.type || 'youtube';
             
-            addVideoToPlaylist(videoData);
-            this.innerHTML = '<i class="fas fa-check"></i> Ajouté';
-            this.disabled = true;
+            // Ajouter à la playlist
+            state.playlist.push({
+                id: videoId,
+                type: videoType,
+                title: result.title,
+                thumbnail: result.thumbnail,
+                author: result.author || 'YouTube'
+            });
+            
+            // Mettre à jour la playlist et notifier les autres
+            updatePlaylistAndNotify();
+            
+            // Notifier l'utilisateur
+            showNotification(`"${result.title}" ajouté à la playlist`, 'success');
+            
+            // Si c'est la première vidéo, la lire automatiquement
+            if (state.playlist.length === 1) {
+                playVideo(0);
+            }
         });
         
         container.appendChild(resultElement);
     });
+}
+
+// Fonction pour extraire l'ID de la vidéo à partir de l'URL
+function extractVideoId(url) {
+    // YouTube
+    let match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+    if (match && match[1]) {
+        return { id: match[1], type: 'youtube' };
+    }
+    
+    // Vimeo
+    match = url.match(/(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)([0-9]+)/);
+    if (match && match[1]) {
+        return { id: match[1], type: 'vimeo' };
+    }
+    
+    // Dailymotion
+    match = url.match(/dailymotion\.com\/(?:video\/|embed\/video\/)([a-zA-Z0-9]+)/);
+    if (match && match[1]) {
+        return { id: match[1], type: 'dailymotion' };
+    }
+    
+    // URL directe vers un fichier vidéo
+    match = url.match(/\.(mp4|webm|ogg)(\?.*)?$/i);
+    if (match) {
+        return { id: url, type: 'direct' };
+    }
+    
+    // Fallback pour autres URL iframes
+    return { id: url, type: 'iframe' };
 } 
