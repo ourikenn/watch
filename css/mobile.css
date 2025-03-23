@@ -1,0 +1,234 @@
+/* Styles spécifiques pour les appareils mobiles */
+
+/* Styles de base pour mobiles */
+.mobile-device {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+/* Ajustements pour les contrôles tactiles */
+.mobile-device button,
+.mobile-device .btn,
+.mobile-device input[type="text"],
+.mobile-device input[type="password"] {
+    font-size: 16px;
+}
+
+/* Styles pour l'écran d'accueil sur mobile */
+@media (max-width: 768px) {
+    .hero .container {
+        flex-direction: column;
+    }
+    
+    .hero-content {
+        order: 1;
+        width: 100%;
+        text-align: center;
+    }
+    
+    .hero-image {
+        order: 0;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    .room-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .room-actions button {
+        margin-bottom: 15px;
+        width: 80%;
+    }
+    
+    .join-room-form {
+        width: 100%;
+        flex-direction: column;
+    }
+    
+    .join-room-form input {
+        width: 80%;
+        margin-bottom: 10px;
+    }
+    
+    .join-room-form button {
+        width: 80%;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .footer-content {
+        flex-direction: column;
+    }
+    
+    .footer-logo, .footer-links {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+}
+
+/* Styles pour la page de room sur mobile */
+.mobile-device .tab-btn {
+    font-size: 14px;
+    padding: 10px 5px;
+    border-radius: 0;
+}
+
+.mobile-device .mobile-floating-controls {
+    display: flex !important;
+}
+
+.mobile-device .room-header .container {
+    flex-wrap: wrap;
+}
+
+.mobile-device .room-info {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.mobile-device .room-info button {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* Optimiser le lecteur vidéo sur mobile */
+.mobile-device .video-player {
+    max-height: 35vh;
+}
+
+.mobile-device .video-controls {
+    opacity: 1;
+    padding: 10px;
+}
+
+.mobile-device .control-buttons button {
+    margin: 0 8px;
+    font-size: 20px;
+}
+
+/* Ajustements pour le chat et les participants */
+.mobile-device .chat-messages,
+.mobile-device .playlist-items,
+.mobile-device .participants-list {
+    height: auto !important;
+    max-height: 50vh;
+}
+
+.mobile-device .message-content {
+    font-size: 14px;
+}
+
+.mobile-device .message-time {
+    font-size: 10px;
+}
+
+.mobile-device .chat-input {
+    padding: 8px;
+}
+
+.mobile-device .chat-input input {
+    height: 40px;
+}
+
+/* Styles pour les modales sur mobile */
+.mobile-device .modal-content {
+    width: 90%;
+    max-width: 400px;
+    padding: 15px;
+}
+
+.mobile-device .close {
+    font-size: 30px;
+    top: 5px;
+    right: 10px;
+}
+
+/* Améliorer le scroll tactile */
+.mobile-device .chat-messages,
+.mobile-device .playlist-items,
+.mobile-device .participants-list {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+/* Réduire la taille des modales */
+.mobile-device .profile-modal-content,
+.mobile-device #add-video-modal .modal-content {
+    max-width: 90vw;
+}
+
+/* Ajustements pour le mode paysage */
+@media (orientation: landscape) {
+    .mobile-device .room-container {
+        flex-direction: row;
+    }
+    
+    .mobile-device .video-section {
+        width: 45%;
+        height: 100vh;
+    }
+    
+    .mobile-device .room-sidebar {
+        width: 55%;
+        height: 100vh;
+    }
+    
+    .mobile-device .tabs {
+        height: auto;
+    }
+    
+    .mobile-device .tab-content {
+        height: calc(100% - 50px);
+    }
+}
+
+/* Ajustements pour le mode portrait */
+@media (orientation: portrait) {
+    .mobile-device .room-container {
+        flex-direction: column;
+    }
+    
+    .mobile-device .video-section {
+        width: 100%;
+        height: 30vh;
+    }
+    
+    .mobile-device .room-sidebar {
+        width: 100%;
+        height: 70vh;
+    }
+}
+
+/* Style pour le bouton Home */
+.home-btn {
+    z-index: 2000 !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3) !important;
+}
+
+/* Notifications pour mobiles */
+.mobile-device .notification {
+    width: 90%;
+    left: 5%;
+    padding: 10px;
+    font-size: 14px;
+}
+
+/* Fixes spécifiques pour iPhone */
+@media screen and (max-width: 480px) and (-webkit-min-device-pixel-ratio: 2) {
+    .mobile-device input[type="text"],
+    .mobile-device input[type="file"],
+    .mobile-device textarea {
+        font-size: 16px; /* Empêche le zoom auto du formulaire */
+    }
+}
+
+/* Fix pour le problème de 100vh sur iOS */
+.mobile-device.ios-device .room-container {
+    height: calc(100vh - 70px);
+} 
