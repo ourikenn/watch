@@ -8,7 +8,8 @@ const state = {
         id: null,
         name: 'Anonymous',
         color: getRandomColor(),
-        isHost: false
+        isHost: false,
+        avatar: null // Ajout d'un champ avatar
     },
     participants: [],
     player: null,
@@ -312,42 +313,68 @@ function updateVolumeIcon(volume) {
 function init() {
     // Récupérer l'ID de la room depuis l'URL
     const urlParams = new URLSearchParams(window.location.search);
-    const id = urlParams.get('id');
+    const roomId = urlParams.get('id');
     
-    if (id) {
-        state.room.id = id;
-        state.room.name = `Room #${id}`;
-        roomId.textContent = id;
-        roomName.textContent = state.room.name;
-        document.title = `${state.room.name} - WatchParty`;
-        
-        // Générer un ID unique pour l'utilisateur s'il n'en a pas déjà un
-        state.user.id = localStorage.getItem('watchparty_user_id') || `user_${Date.now()}`;
-        localStorage.setItem('watchparty_user_id', state.user.id);
-        
-        // Vérifier si l'utilisateur est l'hôte
-        const roomCreator = localStorage.getItem(`room_creator_${id}`);
-        if (roomCreator === state.user.id) {
-            state.user.isHost = true;
-        }
-        
-        // Récupérer le nom d'utilisateur s'il existe
-        const userName = localStorage.getItem('watchparty_user_name');
-        if (userName) {
-            state.user.name = userName;
-            // Initialiser la connexion et l'interface
-            initializeRoom();
-        } else {
-            // Afficher le modal pour demander le nom d'utilisateur
-            showUsernameModal();
-        }
-    } else {
-        // Rediriger vers la page d'accueil si aucun ID de room n'est spécifié
+    if (!roomId) {
+        // Rediriger vers la page d'accueil si pas d'ID de room
         window.location.href = 'index.html';
+        return;
     }
     
-    // Configurer l'interface mobile si nécessaire
+    // Définir l'ID de la room
+    state.room.id = roomId;
+    state.room.name = `Room #${roomId}`;
+    
+    // Mettre à jour les éléments d'interface
+    if (window.roomId) {
+        window.roomId.textContent = roomId;
+    }
+    
+    // Générer un ID pour l'utilisateur
+    state.user.id = localStorage.getItem('watchparty_user_id') || Date.now().toString();
+    localStorage.setItem('watchparty_user_id', state.user.id);
+    
+    // Récupérer le nom de l'utilisateur s'il existe
+    state.user.name = localStorage.getItem('watchparty_user_name') || 'Anonymous';
+    
+    // Vérifier s'il y a un profil utilisateur
+    syncUserWithProfile();
+    
+    // Écouter les événements de mise à jour de profil
+    document.addEventListener('profile_updated', function(e) {
+        syncUserWithProfile();
+        updateParticipantsList();
+    });
+    
+    // Demander le nom de l'utilisateur s'il n'est pas défini et pas de profil
+    if (state.user.name === 'Anonymous' && !window.userProfile?.isLoggedIn()) {
+        showUsernameModal();
+    } else {
+        // Sinon, initialiser directement la salle
+        initializeRoom();
+    }
+    
+    // Configurer l'interface pour les appareils mobiles
     setupMobileInterface();
+}
+
+// Synchroniser les informations utilisateur avec le profil
+function syncUserWithProfile() {
+    if (window.userProfile && window.userProfile.isLoggedIn()) {
+        const profile = window.userProfile.getData();
+        if (profile) {
+            // Utiliser le nom du profil
+            state.user.name = profile.username;
+            
+            // Utiliser l'avatar du profil
+            state.user.avatar = profile.avatar || null;
+            
+            // Sauvegarder le nom d'utilisateur localement
+            localStorage.setItem('watchparty_user_name', profile.username);
+            
+            console.log('✅ Profil utilisateur synchronisé:', state.user.name);
+        }
+    }
 }
 
 // Fonction pour initialiser la salle après avoir défini le nom d'utilisateur
@@ -956,14 +983,29 @@ function updateParticipantsList() {
     participantsList.innerHTML = '';
     
     state.participants.forEach(user => {
-        const initials = user.name.substring(0, 2).toUpperCase();
         const isCurrentUser = user.id === state.user.id;
+        
+        // Si c'est l'utilisateur actuel, utiliser ses données de profil à jour
+        if (isCurrentUser) {
+            user.name = state.user.name;
+            user.avatar = state.user.avatar;
+        }
         
         const item = document.createElement('li');
         item.classList.add('participant');
         
+        let avatarContent = '';
+        if (user.avatar) {
+            // Afficher l'image d'avatar si disponible
+            avatarContent = `<img src="${user.avatar}" alt="${user.name}" />`;
+        } else {
+            // Sinon afficher les initiales
+            const initials = user.name.substring(0, 2).toUpperCase();
+            avatarContent = initials;
+        }
+        
         item.innerHTML = `
-            <div class="participant-avatar" style="background-color: ${user.color}">${initials}</div>
+            <div class="participant-avatar ${user.avatar ? 'with-image' : ''}" style="${!user.avatar ? 'background-color: ' + user.color : ''}">${avatarContent}</div>
             <div class="participant-info">
                 <div class="participant-name">
                     ${user.name} ${isCurrentUser ? '(Vous)' : ''}
@@ -1032,12 +1074,29 @@ function addChatMessage(message) {
         // Message utilisateur
         const isCurrentUser = message.userId === state.user.id;
         
+        // Si c'est l'utilisateur actuel, utiliser les données de profil à jour
+        if (isCurrentUser) {
+            message.username = state.user.name;
+            message.avatar = state.user.avatar;
+        }
+        
         if (isCurrentUser) {
             messageElement.classList.add('my-message');
         }
         
+        // Ajouter l'avatar au message s'il est disponible
+        let avatarHTML = '';
+        if (message.avatar) {
+            avatarHTML = `<img src="${message.avatar}" alt="${message.username}" class="message-avatar" />`;
+        } else {
+            // Créer un avatar avec les initiales et la couleur
+            const initials = message.username.substring(0, 2).toUpperCase();
+            avatarHTML = `<div class="message-avatar-text" style="background-color: ${message.color}">${initials}</div>`;
+        }
+        
         messageElement.innerHTML = `
             <div class="message-header">
+                ${avatarHTML}
                 <span class="message-username" style="color: ${message.color}">${message.username}</span>
                 <span class="message-time">${formatTime(new Date(message.timestamp))}</span>
             </div>
@@ -1064,7 +1123,8 @@ function sendMessage() {
         username: state.user.name,
         text: message,
         timestamp: new Date().toISOString(),
-        color: state.user.color
+        color: state.user.color,
+        avatar: state.user.avatar // Inclure l'avatar dans le message
     });
     
     // Envoyer le message aux autres participants (via WebSocket)
@@ -1076,7 +1136,8 @@ function sendMessage() {
                 username: state.user.name,
                 text: message,
                 timestamp: new Date().toISOString(),
-                color: state.user.color
+                color: state.user.color,
+                avatar: state.user.avatar // Inclure l'avatar dans le message envoyé
             }
         }));
     }

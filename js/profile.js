@@ -18,6 +18,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Variables pour stocker les données utilisateur
     let currentUser = null;
     
+    // Partager le profil avec l'objet window pour l'accès depuis d'autres scripts
+    window.userProfile = {
+        getData: function() {
+            return currentUser;
+        },
+        isLoggedIn: function() {
+            return currentUser !== null;
+        }
+    };
+    
+    // Déclencher un événement lorsque le profil est chargé ou modifié
+    function triggerProfileChange() {
+        document.dispatchEvent(new CustomEvent('profile_updated', { 
+            detail: { profile: currentUser }
+        }));
+    }
+    
     // Charger le profil utilisateur depuis localStorage au démarrage
     function loadUserProfile() {
         const userProfile = localStorage.getItem('watchparty_user_profile');
@@ -25,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userProfile) {
             currentUser = JSON.parse(userProfile);
             updateProfileUI();
+            triggerProfileChange();
         }
     }
     
@@ -134,6 +152,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Mettre à jour l'interface
         updateProfileUI();
         
+        // Déclencher l'événement de changement de profil
+        triggerProfileChange();
+        
         // Fermer le modal
         closeProfileModalFn();
         
@@ -172,6 +193,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userMenuEl) {
             userMenuEl.classList.remove('active');
         }
+        
+        // Déclencher l'événement de changement de profil
+        triggerProfileChange();
         
         showNotification('Vous avez été déconnecté', 'info');
     }
