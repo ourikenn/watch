@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const roomPage = document.querySelector('.room-page');
         if (!roomPage) return; // Ne s'applique qu'à la page de room
         
+        console.log('🔄 Restructuration pour mobile en cours...');
+        
         // 1. Récupérer tous les éléments importants originaux
         const header = document.querySelector('.room-header');
         const videoSection = document.querySelector('.video-section');
@@ -31,6 +33,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const tabsContainer = document.querySelector('.tabs');
         const tabBtns = document.querySelectorAll('.tab-btn');
         const tabPanes = document.querySelectorAll('.tab-pane');
+        
+        // Vérifier que les éléments essentiels existent
+        if (!videoSection || !roomSidebar) {
+            console.error('❌ Éléments essentiels non trouvés, annulation de la restructuration');
+            return;
+        }
+        
+        console.log('✅ Éléments trouvés, début de la restructuration');
         
         // Cloner les éléments pour éviter les références déplacées
         const videoSectionClone = videoSection.cloneNode(true);
@@ -81,14 +91,26 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 3. Construire la structure des pages
         
-        // Page vidéo
+        // Page vidéo - corriger en s'assurant que tous les éléments vidéo sont copiés correctement
         videoPage.appendChild(videoSectionClone);
+        
+        // S'assurer que le lecteur vidéo est visible
+        const videoPlayer = videoSectionClone.querySelector('#video-player');
+        if (videoPlayer) {
+            videoPlayer.style.display = 'block';
+            console.log('✅ Lecteur vidéo copié dans la nouvelle structure');
+        } else {
+            console.error('❌ Lecteur vidéo non trouvé');
+        }
         
         // Page playlist
         const playlistTab = document.querySelector('#playlist');
         if (playlistTab) {
             const playlistContent = playlistTab.cloneNode(true);
             playlistPage.appendChild(playlistContent);
+            console.log('✅ Contenu de la playlist copié');
+        } else {
+            console.error('❌ Onglet playlist non trouvé');
         }
         
         // Page participants
@@ -96,6 +118,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (participantsTab) {
             const participantsContent = participantsTab.cloneNode(true);
             participantsPage.appendChild(participantsContent);
+            console.log('✅ Contenu des participants copié');
+        } else {
+            console.error('❌ Onglet participants non trouvé');
         }
         
         // Chat - déplacer le contenu du chat dans le conteneur flottant
@@ -109,11 +134,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 Array.from(chatMessages.children).forEach(child => {
                     newChatMessages.appendChild(child.cloneNode(true));
                 });
+                console.log('✅ Messages du chat copiés');
+            } else {
+                console.error('❌ Messages du chat non trouvés');
             }
             
             // Configurer le champ d'entrée
             const originalInput = chatTab.querySelector('#message-input');
-            const originalSendBtn = chatTab.querySelector('#send-message-btn');
+            const originalSendBtn = chatTab.querySelector('#send-message-btn, #send-btn'); // Accepte les deux ID possibles
             const newInput = chatContainer.querySelector('#message-input');
             const newSendBtn = chatContainer.querySelector('#send-message-btn');
             
@@ -128,7 +156,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 
                 newSendBtn.addEventListener('click', sendChatMessage);
+                console.log('✅ Champ d\'entrée du chat configuré');
+            } else {
+                console.error('❌ Champ d\'entrée du chat non trouvé');
             }
+        } else {
+            console.error('❌ Onglet chat non trouvé');
         }
         
         // 4. Créer la navigation
@@ -175,8 +208,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // 6. Vider et reconstruire la page
         const roomContainer = document.querySelector('.room-container');
         if (roomContainer) {
-            // Cacher la structure originale
-            roomContainer.style.display = 'none';
+            // IMPORTANT: Ne pas cacher la structure originale pour le moment
+            // Simplement ajouter nos éléments au-dessus
+            // roomContainer.style.display = 'none';
             
             // Ajouter les nouveaux éléments
             mobileContent.appendChild(videoPage);
@@ -190,10 +224,13 @@ document.addEventListener('DOMContentLoaded', function() {
             parentElement.appendChild(chatToggleBtn);
             parentElement.appendChild(floatingControls);
             
-            // Conserver l'en-tête original si nécessaire
-            if (header) {
-                // L'en-tête est déjà positionné en fixed dans le CSS mobile
-            }
+            // Masquer l'interface originale de manière plus sûre
+            // en utilisant une classe au lieu de display: none
+            roomContainer.classList.add('mobile-hidden');
+            
+            console.log('✅ Nouvelles interfaces ajoutées au DOM');
+        } else {
+            console.error('❌ Conteneur principal non trouvé');
         }
         
         // 7. Ajouter les gestionnaires d'événements pour la nouvelle structure
@@ -201,6 +238,8 @@ document.addEventListener('DOMContentLoaded', function() {
         setupChatToggle();
         setupFloatingButtons();
         setupVideoControls();
+        
+        console.log('✅ Restructuration pour mobile terminée avec succès');
     }
     
     // Configuration de la navigation mobile
@@ -209,6 +248,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         navItems.forEach(item => {
             item.addEventListener('click', function() {
+                console.log(`🔄 Navigation vers: ${this.dataset.target}`);
+                
                 // Désactiver tous les onglets
                 navItems.forEach(nav => nav.classList.remove('active'));
                 
@@ -224,6 +265,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const targetPage = document.getElementById(targetId);
                 if (targetPage) {
                     targetPage.classList.add('active');
+                    console.log(`✅ Page ${targetId} activée`);
+                } else {
+                    console.error(`❌ Page ${targetId} non trouvée`);
                 }
                 
                 // En mode paysage, fermer le chat si on va sur une autre page
@@ -246,6 +290,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (chatToggleBtn && chatContainer) {
             chatToggleBtn.addEventListener('click', function() {
+                console.log('🔄 Toggle du chat');
                 chatContainer.classList.toggle('open');
                 
                 // En mode paysage, appliquer une mise en page spéciale
@@ -279,10 +324,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const addVideoBtn = document.getElementById('mobile-add-video');
         if (addVideoBtn) {
             addVideoBtn.addEventListener('click', function() {
+                console.log('🔄 Clic sur le bouton d\'ajout de vidéo');
                 // Trouver et cliquer sur le bouton original
                 const originalAddBtn = document.getElementById('add-video-btn');
                 if (originalAddBtn) {
                     originalAddBtn.click();
+                    console.log('✅ Bouton original cliqué');
+                } else {
+                    console.error('❌ Bouton original non trouvé');
                 }
             });
         }
@@ -303,7 +352,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const videoPlayer = document.querySelector('#video-player');
         const videoControls = document.querySelector('.video-controls');
         
-        if (!videoPlayer || !videoControls) return;
+        if (!videoPlayer || !videoControls) {
+            console.error('❌ Éléments vidéo non trouvés');
+            return;
+        }
+        
+        console.log('✅ Configuration des contrôles vidéo');
         
         // Les contrôles sont toujours visibles sur mobile
         videoControls.style.opacity = '1';
@@ -319,6 +373,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const playPauseBtn = document.getElementById('play-pause-btn');
                 if (playPauseBtn) {
                     playPauseBtn.click();
+                    console.log('✅ Double-tap détecté - lecture/pause');
                 }
                 e.preventDefault();
             }
@@ -380,8 +435,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageInput = document.querySelector('.chat-container #message-input');
         if (!messageInput || !messageInput.value.trim()) return;
         
+        console.log('🔄 Envoi d\'un message du chat');
+        
         // Trouver le bouton d'envoi d'origine et le simuler
-        const originalSendBtn = document.querySelector('#chat #send-message-btn');
+        const originalSendBtn = document.querySelector('#chat #send-message-btn, #chat #send-btn');
         const originalInput = document.querySelector('#chat #message-input');
         
         if (originalInput && originalSendBtn) {
@@ -390,6 +447,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Simuler le clic
             originalSendBtn.click();
+            console.log('✅ Message envoyé via l\'interface originale');
             
             // Vider le champ mobile
             messageInput.value = '';
@@ -405,12 +463,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     mobileMessages.scrollTop = mobileMessages.scrollHeight;
                 }
             }, 100);
+        } else {
+            console.error('❌ Éléments du chat original non trouvés');
         }
     }
     
     // Gérer les changements d'orientation
     function handleOrientationChange() {
         const isLandscape = window.innerWidth > window.innerHeight;
+        
+        console.log(`🔄 Changement d'orientation: ${isLandscape ? 'paysage' : 'portrait'}`);
         
         // Adapter la disposition selon l'orientation
         if (isLandscape) {
@@ -493,11 +555,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Initialiser l'orientation
         handleOrientationChange();
         
-        console.log('🔄 Interface mobile restructurée avec succès');
+        console.log('🚀 Interface mobile initialisée avec succès');
     }
     
     // Démarrer l'initialisation après un court délai pour s'assurer que tout est chargé
-    setTimeout(initialize, 300);
+    setTimeout(initialize, 500);
 });
 
 // Charger le fichier CSS spécifique pour mobile
@@ -510,4 +572,6 @@ function loadMobileCSS() {
     link.type = 'text/css';
     link.href = 'css/mobile.css';
     document.head.appendChild(link);
+    
+    console.log('✅ CSS mobile chargé');
 }

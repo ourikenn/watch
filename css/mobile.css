@@ -27,6 +27,16 @@
     background-color: #1f1f1f;
 }
 
+/* Cacher l'interface originale lorsqu'on utilise la version mobile */
+.mobile-device .mobile-hidden {
+    position: absolute;
+    opacity: 0;
+    z-index: -1;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+}
+
 /* En-tête fixe */
 .mobile-device .room-header {
     position: fixed;
@@ -116,6 +126,7 @@
     height: calc(100vh - 110px); /* Hauteur totale - (header + nav) */
     overflow: hidden;
     z-index: 10;
+    background-color: #1f1f1f;
 }
 
 /* Les différentes pages */
@@ -128,15 +139,27 @@
     display: none;
     flex-direction: column;
     background-color: #1f1f1f;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease;
 }
 
 .mobile-device .mobile-page.active {
     display: flex;
+    visibility: visible;
+    opacity: 1;
+    z-index: 1;
 }
 
 /* PAGE VIDEO */
 .mobile-device .video-page {
     background-color: #000;
+}
+
+.mobile-device .video-page .video-section {
+    width: 100%;
+    height: 100%;
+    position: relative;
 }
 
 .mobile-device .video-player-container {
@@ -148,10 +171,12 @@
     align-items: center;
 }
 
-.mobile-device #video-player {
-    width: 100%;
-    height: 100%;
+.mobile-device #video-player,
+.mobile-device .video-page #video-player {
+    width: 100% !important;
+    height: 100% !important;
     background-color: #000;
+    display: block !important;
 }
 
 .mobile-device .placeholder-player {
@@ -176,7 +201,7 @@
     width: 100%;
     background-color: rgba(0,0,0,0.7);
     padding: 10px 0;
-    opacity: 1;
+    opacity: 1 !important;
     z-index: 20;
 }
 
@@ -235,6 +260,19 @@
     background-color: #1f1f1f;
     display: flex;
     flex-direction: column;
+}
+
+/* S'assurer que le contenu de la playlist est visible */
+.mobile-device .playlist-page #playlist {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column;
+    overflow: hidden;
+    background-color: #1f1f1f;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
 }
 
 .mobile-device .playlist-header {
@@ -328,6 +366,17 @@
     padding: 15px;
 }
 
+/* S'assurer que le contenu des participants est visible */
+.mobile-device .participants-page #participants {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    overflow: auto;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+}
+
 .mobile-device .participants-page h3 {
     margin: 0 0 15px 0;
     font-size: 18px;
@@ -391,6 +440,18 @@
 
 .mobile-device .chat-container.open {
     height: 60vh;
+}
+
+/* S'assurer que le contenu du chat est visible */
+.mobile-device .chat-page #chat {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
 }
 
 .mobile-device .chat-header {
@@ -630,59 +691,28 @@
 }
 
 /* Styles pour l'écran d'accueil sur mobile */
-@media (max-width: 768px) {
-    .hero .container {
-        flex-direction: column;
-    }
-    
-    .hero-content {
-        order: 1;
-        width: 100%;
-        text-align: center;
-    }
-    
-    .hero-image {
-        order: 0;
-        width: 100%;
-        margin-bottom: 20px;
-    }
-    
-    .room-actions {
-        flex-direction: column;
-        align-items: center;
-    }
-    
-    .room-actions button {
-        margin-bottom: 15px;
-        width: 80%;
-    }
-    
-    .join-room-form {
-        width: 100%;
-        flex-direction: column;
-    }
-    
-    .join-room-form input {
-        width: 80%;
-        margin-bottom: 10px;
-    }
-    
-    .join-room-form button {
-        width: 80%;
-    }
-    
-    .features-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .footer-content {
-        flex-direction: column;
-    }
-    
-    .footer-logo, .footer-links {
-        width: 100%;
-        margin-bottom: 20px;
-    }
+.mobile-device .login-container {
+    padding: 15px;
+}
+
+.mobile-device .login-form {
+    width: 100%;
+    max-width: 100%;
+}
+
+.mobile-device .recent-rooms {
+    width: 100%;
+    margin-top: 20px;
+}
+
+.mobile-device .room-card {
+    padding: 15px;
+    margin-bottom: 15px;
+    height: auto;
+}
+
+.mobile-device .room-card img {
+    height: calc(100vw - 70px);
 }
 
 /* Styles pour la page de room sur mobile */
