@@ -158,4 +158,54 @@ Ce projet est sous licence MIT. Vous êtes libre de l'utiliser, le modifier et l
 
 ---
 
-Créé par [Votre Nom] - [Année] 
+Créé par [Votre Nom] - [Année]
+
+# Interface Mobile Watch Together
+
+## Nouvelle interface mobile
+
+Cette mise à jour introduit une refonte complète de l'interface mobile pour Watch Together, offrant une expérience optimisée pour les smartphones et tablettes.
+
+### Fonctionnalités
+
+- **Navigation par onglets** au bas de l'écran pour accéder facilement à toutes les fonctions
+- **Chat flottant** accessible depuis n'importe quelle page
+- **Contrôles vidéo adaptés** pour les écrans tactiles
+- **Optimisation paysage/portrait** avec disposition spécifique pour chaque orientation
+- **Boutons d'action flottants** pour les fonctions principales
+- **Support iOS amélioré** pour une expérience cohérente sur tous les appareils
+
+### Comment tester
+
+1. Ouvrez `test-mobile.html` sur un appareil mobile ou utilisez les outils de développement de votre navigateur en mode appareil mobile
+2. L'interface se charge automatiquement avec les optimisations mobiles
+3. Testez la navigation entre les différentes sections (Vidéo, Playlist, Participants)
+4. Essayez le chat flottant en cliquant sur le bouton de chat en bas à gauche
+5. Testez le mode paysage en tournant votre appareil
+
+### Structure technique
+
+L'interface mobile est constituée de trois composants principaux :
+
+1. **CSS Mobile** (`css/mobile.css`) : Contient tous les styles spécifiques aux appareils mobiles
+2. **JavaScript d'optimisation** (`js/mobile-optimize.js`) : Restructure le DOM pour créer l'interface mobile et gère les interactions
+3. **Page de test** (`test-mobile.html`) : Une page de démonstration pour tester l'interface indépendamment
+
+### Comment ça fonctionne
+
+À chaque chargement de page, le script détecte automatiquement si l'utilisateur utilise un appareil mobile. Si c'est le cas, il :
+
+1. Applique les classes CSS nécessaires
+2. Restructure l'interface pour le mobile
+3. Configure la navigation par onglets
+4. Initialise le chat flottant
+5. Met en place les boutons d'action flottants
+6. Optimise les contrôles vidéo pour écrans tactiles
+
+En mode paysage, l'interface s'adapte pour afficher une disposition spécifique permettant de voir la vidéo et le chat côte à côte si souhaité.
+
+### Notes techniques
+
+- La détection mobile se fait côté client via l'User-Agent
+- L'interface utilise des composants indépendants de la structure originale
+- La restructuration du DOM conserve tous les ID et classes importants pour la compatibilité avec le JavaScript existant 
