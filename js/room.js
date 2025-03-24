@@ -369,9 +369,6 @@ function init() {
         // Sinon, initialiser directement la salle
         initializeRoom();
     }
-    
-    // Configurer l'interface pour les appareils mobiles
-    setupMobileInterface();
 }
 
 // Synchroniser les informations utilisateur avec le profil
