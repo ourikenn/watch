@@ -28,6 +28,33 @@ app.use(session({
 // Variable globale pour stocker les données des salles
 const rooms = {};
 
+// Gestion de la synchronisation vidéo
+const roomStates = new Map();
+
+function updateRoomState(roomId, data) {
+    if (!roomStates.has(roomId)) {
+        roomStates.set(roomId, {
+            currentTime: 0,
+            playerState: 'paused',
+            lastUpdate: Date.now(),
+            syncRequests: new Map(),
+            bufferingClients: new Set(),
+            masterClientId: null,
+            lastSyncTime: Date.now()
+        });
+    }
+    
+    const state = roomStates.get(roomId);
+    state.currentTime = data.currentTime;
+    state.playerState = data.playerState;
+    state.lastUpdate = Date.now();
+    
+    // Mettre à jour le master client si nécessaire
+    if (!state.masterClientId) {
+        state.masterClientId = data.userId;
+    }
+}
+
 // -----------------------------------------------------
 // Routes d'API pour la recherche de contenu
 // -----------------------------------------------------
@@ -417,7 +444,7 @@ async function searchWithPollination(query, maxResults = 10) {
 
 // Gestion des connexions WebSocket
 io.on('connection', (socket) => {
-    console.log('Nouvelle connexion socket:', socket.id);
+    console.log('🔌 Nouvelle connexion WebSocket');
     
     // Rejoindre une room
     socket.on('join-room', (roomId, userId, userData) => {
@@ -525,65 +552,206 @@ io.on('connection', (socket) => {
         }
     });
     
-    // Déconnexion
-    socket.on('disconnect', () => {
-        console.log('Déconnexion socket:', socket.id);
+    // Gestion améliorée de la synchronisation
+    socket.on('request-sync', (data) => {
+        console.log('📡 Demande de synchronisation reçue:', data);
         
-        // Trouver la room et l'utilisateur
-        for (const roomId in rooms) {
-            for (const userId in rooms[roomId].participants) {
-                if (rooms[roomId].participants[userId].socketId === socket.id) {
-                    // Informer les autres participants
-                    socket.to(roomId).emit('user-disconnected', userId);
-                    
-                    // Supprimer l'utilisateur
-                    delete rooms[roomId].participants[userId];
-                    
-                    // Supprimer la room si elle est vide
-                    if (Object.keys(rooms[roomId].participants).length === 0) {
-                        delete rooms[roomId];
-                    }
-                    
-                    break;
-                }
+        const roomId = data.roomId;
+        if (!roomId) return;
+        
+        const state = roomStates.get(roomId);
+        if (!state) return;
+        
+        // Mettre à jour l'état de la room
+        updateRoomState(roomId, data);
+        
+        // Si le client est en buffering, informer les autres
+        if (data.isBuffering) {
+            state.bufferingClients.add(data.userId);
+            
+            // Si trop de clients sont en buffering, ralentir la lecture
+            if (state.bufferingClients.size > 2) {
+                io.to(roomId).emit('playback-rate', { rate: 0.75 });
+            }
+        } else {
+            state.bufferingClients.delete(data.userId);
+            
+            // Si plus assez de clients en buffering, reprendre la vitesse normale
+            if (state.bufferingClients.size <= 2) {
+                io.to(roomId).emit('playback-rate', { rate: 1 });
+            }
+        }
+        
+        // Vérifier si une synchronisation est nécessaire
+        const timeSinceLastSync = Date.now() - state.lastSyncTime;
+        if (timeSinceLastSync > 5000) { // Attendre au moins 5 secondes entre les syncs
+            state.lastSyncTime = Date.now();
+            
+            // Diffuser la demande de synchronisation au master client
+            if (state.masterClientId) {
+                socket.to(roomId).emit('sync-request', {
+                    requesterId: data.userId,
+                    timestamp: Date.now()
+                });
             }
         }
     });
     
-    // Expulser un participant
-    socket.on('kick-participant', (roomId, targetUserId) => {
-        if (!rooms[roomId]) return;
+    socket.on('sync-response', (data) => {
+        console.log('📡 Réponse de synchronisation reçue:', data);
         
-        // Vérifier si l'utilisateur qui a envoyé cette demande est l'hôte
-        let isHost = false;
-        let userId = null;
+        const roomId = data.roomId;
+        if (!roomId) return;
         
-        for (const uid in rooms[roomId].participants) {
-            if (rooms[roomId].participants[uid].socketId === socket.id) {
-                userId = uid;
-                isHost = rooms[roomId].participants[uid].isHost;
-                break;
-            }
+        const state = roomStates.get(roomId);
+        if (!state) return;
+        
+        // Mettre à jour l'état de la room
+        updateRoomState(roomId, data);
+        
+        // Diffuser la mise à jour à tous les clients de la room
+        io.to(roomId).emit('sync-update', {
+            currentTime: data.currentTime,
+            playerState: data.playerState,
+            timestamp: Date.now(),
+            masterClientId: state.masterClientId
+        });
+    });
+    
+    socket.on('buffering-start', (data) => {
+        console.log('⏳ Client en buffering:', data);
+        
+        const roomId = data.roomId;
+        if (!roomId) return;
+        
+        const state = roomStates.get(roomId);
+        if (!state) return;
+        
+        // Ajouter le client à la liste des clients en buffering
+        state.bufferingClients.add(data.userId);
+        
+        // Si trop de clients sont en buffering, ralentir la lecture
+        if (state.bufferingClients.size > 2) {
+            io.to(roomId).emit('playback-rate', { rate: 0.75 });
         }
         
-        if (!isHost) return;
+        // Informer les autres clients
+        socket.to(roomId).emit('buffering-start', {
+            userId: data.userId,
+            timestamp: Date.now()
+        });
+    });
+    
+    socket.on('buffering-end', (data) => {
+        console.log('✅ Client a terminé le buffering:', data);
         
-        // Trouver le socket de l'utilisateur cible
-        const targetUser = rooms[roomId].participants[targetUserId];
-        if (targetUser) {
-            const targetSocketId = targetUser.socketId;
+        const roomId = data.roomId;
+        if (!roomId) return;
+        
+        const state = roomStates.get(roomId);
+        if (!state) return;
+        
+        // Retirer le client de la liste des clients en buffering
+        state.bufferingClients.delete(data.userId);
+        
+        // Si plus assez de clients en buffering, reprendre la vitesse normale
+        if (state.bufferingClients.size <= 2) {
+            io.to(roomId).emit('playback-rate', { rate: 1 });
+        }
+        
+        // Informer les autres clients
+        socket.to(roomId).emit('buffering-end', {
+            userId: data.userId,
+            timestamp: Date.now()
+        });
+    });
+    
+    // Gestion améliorée des contrôles vidéo
+    socket.on('video-control', (data) => {
+        console.log('🎮 Contrôle vidéo reçu:', data);
+        
+        const roomId = data.roomId;
+        if (!roomId) return;
+        
+        const state = roomStates.get(roomId);
+        if (!state) return;
+        
+        // Mettre à jour l'état de la room
+        updateRoomState(roomId, {
+            currentTime: data.currentTime,
+            playerState: data.action === 'play' ? 'playing' : 'paused',
+            userId: data.userId
+        });
+        
+        // Diffuser le contrôle à tous les autres clients avec un léger délai
+        setTimeout(() => {
+            socket.to(roomId).emit('video-control', {
+                action: data.action,
+                currentTime: data.currentTime,
+                userName: data.userName,
+                timestamp: Date.now()
+            });
+        }, 100);
+    });
+    
+    socket.on('video-seek', (data) => {
+        console.log('🎮 Changement de position vidéo:', data);
+        
+        const roomId = data.roomId;
+        if (!roomId) return;
+        
+        const state = roomStates.get(roomId);
+        if (!state) return;
+        
+        // Mettre à jour l'état de la room
+        updateRoomState(roomId, {
+            currentTime: data.time,
+            playerState: 'seeking',
+            userId: data.userId
+        });
+        
+        // Diffuser le changement de position à tous les autres clients
+        socket.to(roomId).emit('video-seek', {
+            time: data.time,
+            timestamp: Date.now()
+        });
+    });
+    
+    // Gestion de la déconnexion
+    socket.on('disconnect', () => {
+        console.log('🔌 Déconnexion socket:', socket.id);
+        
+        // Nettoyer les états des rooms pour ce client
+        for (const [roomId, state] of roomStates.entries()) {
+            // Si le client déconnecté était le master, choisir un nouveau master
+            if (state.masterClientId === socket.id) {
+                const room = rooms[roomId];
+                if (room && room.participants) {
+                    const participants = Object.values(room.participants);
+                    if (participants.length > 0) {
+                        state.masterClientId = participants[0].id;
+                        console.log(`🔄 Nouveau master client pour la room ${roomId}:`, state.masterClientId);
+                    }
+                }
+            }
             
-            // Envoyer un événement à l'utilisateur cible
-            io.to(targetSocketId).emit('kicked-from-room');
-            
-            // Informer les autres participants
-            socket.to(roomId).emit('user-kicked', targetUserId);
-            
-            // Supprimer l'utilisateur
-            delete rooms[roomId].participants[targetUserId];
+            // Nettoyer les états de buffering
+            state.bufferingClients.delete(socket.id);
         }
     });
 });
+
+// Nettoyage périodique des états des rooms inactives
+setInterval(() => {
+    const now = Date.now();
+    for (const [roomId, state] of roomStates.entries()) {
+        // Supprimer les états des rooms inactives depuis plus de 24 heures
+        if (now - state.lastUpdate > 24 * 60 * 60 * 1000) {
+            roomStates.delete(roomId);
+            console.log(`🧹 Nettoyage de l'état de la room ${roomId}`);
+        }
+    }
+}, 60 * 60 * 1000); // Vérifier toutes les heures
 
 // Route pour servir la page index.html
 app.get('/', (req, res) => {

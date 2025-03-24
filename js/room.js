@@ -1,3 +1,6 @@
+// Importer le gestionnaire de synchronisation
+import SyncManager from './sync-manager.js';
+
 // État global de l'application
 const state = {
     room: {
@@ -9,13 +12,26 @@ const state = {
         name: 'Anonymous',
         color: getRandomColor(),
         isHost: false,
-        avatar: null // Ajout d'un champ avatar
+        avatar: null
     },
     participants: [],
     player: null,
+    syncManager: null,
     playlist: [],
     currentVideoIndex: -1,
-    socket: null
+    socket: null,
+    sync: {
+        lastUpdate: Date.now(),
+        syncInterval: 2000, // Vérification toutes les 2 secondes
+        syncThreshold: 2, // Seuil de désynchronisation en secondes
+        isBuffering: false,
+        isSeeking: false,
+        masterClient: false,
+        lastKnownTime: 0,
+        lastKnownState: 'paused',
+        bufferingTimeout: null,
+        syncLock: false
+    }
 };
 
 // Éléments DOM
@@ -346,7 +362,7 @@ function init() {
         updateParticipantsList();
     });
     
-    // Demander le nom de l'utilisateur s'il n'est pas défini et pas de profil
+    // Demander le nom d'utilisateur s'il n'est pas défini et pas de profil
     if (state.user.name === 'Anonymous' && !window.userProfile?.isLoggedIn()) {
         showUsernameModal();
     } else {
@@ -730,198 +746,62 @@ function initEvents() {
 
 // Initialiser la connexion en temps réel
 function initRealTimeConnection() {
-    // Connexion au serveur Socket.IO
-    // Utiliser l'URL du serveur définie globalement si elle existe, sinon utiliser l'URL actuelle
-    const socketUrl = window.SOCKET_SERVER_URL || 
-                      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-                      ? `http://${window.location.hostname}:3000` 
-                      : window.location.origin);
-        
-    console.log('Connexion au serveur Socket.IO:', socketUrl);
-    state.socket = io(socketUrl, {
-        transports: ['websocket', 'polling'],
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000
-    });
+    // Initialiser la connexion socket.io
+    socket = io(SOCKET_SERVER_URL);
     
     // Événements de connexion
-    state.socket.on('connect', () => {
-        console.log('Connecté au serveur Socket.IO');
+    socket.on('connect', () => {
+        console.log('🔌 Connecté au serveur');
         
         // Rejoindre la room
-        state.socket.emit('join-room', state.room.id, state.user.id, {
-            name: state.user.name,
-            color: state.user.color,
-            isHost: state.user.isHost
+        socket.emit('join-room', {
+            roomId: state.room.id,
+            userId: state.user.id,
+            userName: state.user.name,
+            userAvatar: state.user.avatar
         });
     });
     
-    state.socket.on('connect_error', (err) => {
-        console.error('Erreur de connexion au serveur Socket.IO:', err);
-        
-        // Fallback: utiliser la simulation
-        if (!state.participants || state.participants.length === 0) {
-            console.log('Utilisation de la simulation (mode hors ligne)');
-            simulateParticipants();
-        }
-    });
-    
-    // Réception des participants
-    state.socket.on('current-participants', (participants) => {
-        console.log('Participants reçus:', participants);
-        state.participants = participants;
-        updateParticipantsList();
-    });
-    
-    // Réception d'un nouvel utilisateur
-    state.socket.on('user-connected', (user) => {
-        console.log('Nouvel utilisateur connecté:', user);
-        
-        // Ajouter l'utilisateur à la liste
-        state.participants.push(user);
-        updateParticipantsList();
-        
-        // Ajouter un message système
-        addChatMessage({
-            userId: 'system',
-            username: 'Système',
-            text: `${user.name} a rejoint la room`,
-            timestamp: new Date().toISOString(),
-            color: '#2c3e50'
-        });
-    });
-    
-    // Utilisateur déconnecté
-    state.socket.on('user-disconnected', (userId) => {
-        console.log('Utilisateur déconnecté:', userId);
-        
-        // Trouver le nom de l'utilisateur avant de le supprimer
-        const user = state.participants.find(p => p.id === userId);
-        const username = user ? user.name : 'Un utilisateur';
-        
-        // Supprimer l'utilisateur de la liste
-        state.participants = state.participants.filter(p => p.id !== userId);
-        updateParticipantsList();
-        
-        // Ajouter un message système
-        addChatMessage({
-            userId: 'system',
-            username: 'Système',
-            text: `${username} a quitté la room`,
-            timestamp: new Date().toISOString(),
-            color: '#2c3e50'
-        });
-    });
-    
-    // Utilisateur expulsé
-    state.socket.on('user-kicked', (userId) => {
-        console.log('Utilisateur expulsé:', userId);
-        
-        // Trouver le nom de l'utilisateur avant de le supprimer
-        const user = state.participants.find(p => p.id === userId);
-        const username = user ? user.name : 'Un utilisateur';
-        
-        // Supprimer l'utilisateur de la liste
-        state.participants = state.participants.filter(p => p.id !== userId);
-        updateParticipantsList();
-        
-        // Ajouter un message système
-        addChatMessage({
-            userId: 'system',
-            username: 'Système',
-            text: `${username} a été expulsé de la room`,
-            timestamp: new Date().toISOString(),
-            color: '#2c3e50'
-        });
-    });
-    
-    // Être expulsé
-    state.socket.on('kicked-from-room', () => {
-        console.log('Vous avez été expulsé de la room');
-        alert('Vous avez été expulsé de la room');
-        window.location.href = 'index.html';
-    });
-    
-    // Réception d'un message de chat
-    state.socket.on('chat-message', (message) => {
-        console.log('Message reçu:', message);
-        addChatMessage(message);
-    });
-    
-    // Mise à jour de la playlist
-    state.socket.on('playlist-update', (data) => {
-        console.log('Playlist mise à jour:', data);
-        state.playlist = data.playlist;
-        
-        if (data.currentVideoIndex !== undefined) {
-            state.currentVideoIndex = data.currentVideoIndex;
-        }
-        
-        updatePlaylist();
-    });
-    
-    // Changement de vidéo
-    state.socket.on('video-change', (data) => {
-        console.log('Changement de vidéo:', data);
-        playVideo(data.videoIndex);
-    });
-    
-    // Changement de position
-    state.socket.on('video-seek', (data) => {
-        console.log('Changement de position:', data);
-        if (state.player) {
-            state.player.seekTo(data.time, true);
-            
-            // Ajouter un message système
-            addChatMessage({
-                userId: 'system',
-                username: 'Système',
-                text: `Un utilisateur a changé la position de la vidéo`,
-                timestamp: new Date().toISOString(),
-                color: '#2c3e50'
-            });
-        }
-    });
-
-    // Contrôle de la vidéo (lecture/pause)
-    state.socket.on('video-control', (data) => {
-        console.log('Contrôle vidéo reçu:', data);
-        if (state.player) {
+    // Événements de contrôle vidéo
+    socket.on('video-control', (data) => {
+        if (data.userId !== state.user.id) {
             if (data.action === 'play') {
                 state.player.playVideo();
-                
-                // Mettre à jour l'icône du bouton
-                if (playPauseBtn) {
-                    playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                }
-                
-                // Ajouter un message système
-                addChatMessage({
-                    userId: 'system',
-                    username: 'Système',
-                    text: `${data.userName || 'Un utilisateur'} a lancé la lecture`,
-                    timestamp: new Date().toISOString(),
-                    color: '#2c3e50'
-                });
-            } else if (data.action === 'pause') {
+                updateSystemMessage(`${data.userName} a lancé la lecture`);
+            } else {
                 state.player.pauseVideo();
-                
-                // Mettre à jour l'icône du bouton
-                if (playPauseBtn) {
-                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                }
-                
-                // Ajouter un message système
-                addChatMessage({
-                    userId: 'system',
-                    username: 'Système',
-                    text: `${data.userName || 'Un utilisateur'} a mis en pause`,
-                    timestamp: new Date().toISOString(),
-                    color: '#2c3e50'
-                });
+                updateSystemMessage(`${data.userName} a mis la vidéo en pause`);
             }
         }
     });
+    
+    socket.on('video-seek', (data) => {
+        if (data.userId !== state.user.id && state.syncManager) {
+            state.syncManager.isSeeking = true;
+            state.player.seekTo(data.time, true);
+            setTimeout(() => {
+                state.syncManager.isSeeking = false;
+            }, 500);
+        }
+    });
+    
+    socket.on('playback-rate', (data) => {
+        if (state.player) {
+            state.player.setPlaybackRate(data.rate);
+        }
+    });
+    
+    socket.on('buffering-start', (data) => {
+        console.log(`⏳ ${data.userId} est en buffering`);
+        updateSystemMessage(`Un participant est en train de charger la vidéo...`);
+    });
+    
+    socket.on('buffering-end', (data) => {
+        console.log(`✅ ${data.userId} a terminé le buffering`);
+        updateSystemMessage(`La lecture continue normalement`);
+    });
+    
+    // ... rest of the existing socket event handlers ...
 }
 
 // Simuler des participants (à remplacer par une vraie implémentation WebRTC)
@@ -1678,621 +1558,171 @@ function createIframePlayer(url) {
 
 // Créer le lecteur YouTube
 function createYouTubePlayer(videoId) {
-    // Vérifier si l'API YouTube est chargée
-    if (typeof YT === 'undefined' || !YT.Player) {
-        // Charger l'API YouTube
-        const tag = document.createElement('script');
-        tag.src = 'https://www.youtube.com/iframe_api';
-        const firstScriptTag = document.getElementsByTagName('script')[0];
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-        
-        // L'API appellera cette fonction lorsqu'elle sera prête
-        window.onYouTubeIframeAPIReady = () => {
-            createPlayer(videoId);
-        };
-    } else {
-        // L'API est déjà chargée
-        createPlayer(videoId);
-    }
-}
-
-// Créer le lecteur avec l'API YouTube
-function createPlayer(videoId) {
-    // Supprimer le placeholder
-    const placeholder = videoPlayer.querySelector('.placeholder-player');
-    if (placeholder) {
-        placeholder.remove();
+    if (!videoId) return;
+    
+    // Détruire le lecteur existant s'il y en a un
+    if (state.player) {
+        state.player.destroy();
+        state.player = null;
     }
     
-    // Créer un élément pour le player
-    const playerElement = document.createElement('div');
-    playerElement.id = 'yt-player';
-    videoPlayer.appendChild(playerElement);
-    
-    // Créer le player YouTube
-    state.player = new YT.Player('yt-player', {
+    // Créer le nouveau lecteur
+    state.player = new YT.Player('video-player', {
         height: '100%',
         width: '100%',
         videoId: videoId,
         playerVars: {
-            'playsinline': 1,
-            'autoplay': 1,
-            'controls': 0,
-            'rel': 0
+            autoplay: 1,
+            controls: 1,
+            disablekb: 0,
+            enablejsapi: 1,
+            fs: 1,
+            modestbranding: 1,
+            playsinline: 1,
+            rel: 0
         },
         events: {
-            'onReady': onPlayerReady,
-            'onStateChange': onPlayerStateChange
-        }
-    });
-}
-
-// Quand le lecteur est prêt
-function onPlayerReady(event) {
-    // Mettre à jour les contrôles
-    updatePlayerControls();
-    
-    // Configurer la mise à jour de la progression
-    setInterval(updateProgressBar, 1000);
-}
-
-// Quand l'état du lecteur change
-function onPlayerStateChange(event) {
-    // Mettre à jour l'interface
-    updatePlayerControls();
-    
-    // Si la vidéo est terminée, passer à la suivante
-    if (event.data === YT.PlayerState.ENDED) {
-        skipVideo();
-    }
-}
-
-// Mettre à jour les contrôles du lecteur
-function updatePlayerControls() {
-    if (!state.player) return;
-    
-    const isPlaying = state.player.getPlayerState() === YT.PlayerState.PLAYING;
-    
-    // Mettre à jour le bouton play/pause
-    if (playPauseBtn) {
-        playPauseBtn.innerHTML = isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
-    }
-    
-    // Mettre à jour le volume
-    const volume = state.player.getVolume();
-    
-    if (volumeBtn) {
-        if (volume === 0) {
-            volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
-        } else if (volume < 50) {
-            volumeBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
-        } else {
-            volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
-        }
-    }
-    
-    if (volumeRange) {
-        volumeRange.value = volume;
-    }
-}
-
-// Mettre à jour la barre de progression
-function updateProgressBar() {
-    if (!state.player || !progressFilled || !currentTimeElement || !totalTimeElement) return;
-    
-    const currentTime = state.player.getCurrentTime() || 0;
-    const duration = state.player.getDuration() || 0;
-    
-    if (duration > 0) {
-        // Mettre à jour la barre de progression
-        const percent = (currentTime / duration) * 100;
-        progressFilled.style.width = `${percent}%`;
-        
-        // Mettre à jour les indicateurs de temps
-        currentTimeElement.textContent = formatDuration(currentTime);
-        totalTimeElement.textContent = formatDuration(duration);
-    }
-}
-
-// Formater la durée en MM:SS
-function formatDuration(seconds) {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-}
-
-// Formater l'heure pour le chat
-function formatTime(date) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-// Changer la position de lecture
-function seekVideo(e) {
-    if (!state.player || !progressBar) return;
-    
-    const bounds = progressBar.getBoundingClientRect();
-    const x = e.pageX - bounds.left;
-    const width = bounds.width;
-    const percent = x / width;
-    
-    const duration = state.player.getDuration();
-    const seekTime = duration * percent;
-    
-    state.player.seekTo(seekTime, true);
-    
-    // Envoyer la mise à jour aux autres participants
-    if (state.socket) {
-        state.socket.send(JSON.stringify({
-            type: 'video_seek',
-            data: {
-                time: seekTime
-            }
-        }));
-    }
-}
-
-// Basculer lecture/pause
-function togglePlay() {
-    if (!state.player) return;
-    
-    try {
-        // Lecteur YouTube
-        if (state.player.getPlayerState) {
-            const playerState = state.player.getPlayerState();
-            
-            if (playerState === YT.PlayerState.PLAYING) {
-                state.player.pauseVideo();
+            onReady: (event) => {
+                console.log('🎥 Lecteur YouTube prêt');
                 
-                // Mettre à jour l'icône du bouton
-                if (playPauseBtn) {
-                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                }
+                // Initialiser les contrôles vidéo
+                setupVideoControls();
                 
-                // Envoyer la mise à jour aux autres participants
-                if (state.socket) {
-                    state.socket.send(JSON.stringify({
-                        type: 'video_control',
-                        data: {
-                            action: 'pause',
-                            userName: state.user.name
-                        }
-                    }));
-                }
-            } else {
-                state.player.playVideo();
+                // Initialiser le gestionnaire de synchronisation
+                state.syncManager = new SyncManager(socket, state.player, state);
                 
-                // Mettre à jour l'icône du bouton
-                if (playPauseBtn) {
-                    playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                }
-                
-                // Envoyer la mise à jour aux autres participants
-                if (state.socket) {
-                    state.socket.send(JSON.stringify({
-                        type: 'video_control',
-                        data: {
-                            action: 'play',
-                            userName: state.user.name
-                        }
-                    }));
-                }
-            }
-            return;
-        }
-        
-        // Lecteur HTML5 (pour vidéos directes)
-        if (state.player.paused !== undefined) {
-            if (state.player.paused) {
-                state.player.play();
-                
-                // Mettre à jour l'icône du bouton
-                if (playPauseBtn) {
-                    playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                }
-            } else {
-                state.player.pause();
-                
-                // Mettre à jour l'icône du bouton
-                if (playPauseBtn) {
-                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                }
-            }
-            
-            // Envoyer la mise à jour aux autres participants
-            if (state.socket) {
-                state.socket.send(JSON.stringify({
-                    type: 'video_control',
-                    data: {
-                        action: state.player.paused ? 'pause' : 'play',
-                        userName: state.user.name
-                    }
-                }));
-            }
-            return;
-        }
-        
-        // Pour les iframes (Vimeo, Dailymotion, etc.), rafraîchir simplement l'iframe
-        if (state.player.tagName === 'IFRAME') {
-            // Pour les iframes, nous ne pouvons pas vraiment contrôler la lecture/pause 
-            // de manière fiable entre domaines, donc on propose juste de rafraîchir
-            const overlay = videoPlayer.querySelector('.iframe-control-overlay');
-            if (overlay) {
-                overlay.style.opacity = '1';
-                overlay.style.pointerEvents = 'auto';
-                
-                // Cacher après 3 secondes
-                setTimeout(() => {
-                    overlay.style.opacity = '0';
-                    overlay.style.pointerEvents = 'none';
-                }, 3000);
-            }
-        }
-    } catch (error) {
-        console.error('Erreur lors du contrôle de la lecture:', error);
-    }
-}
-
-// Activer/Désactiver le son
-function toggleMute() {
-    if (!state.player) return;
-    
-    const isMuted = state.player.isMuted();
-    
-    if (isMuted) {
-        state.player.unMute();
-        
-        // Restaurer le volume précédent
-        const previousVolume = parseInt(volumeRange.value);
-        state.player.setVolume(previousVolume);
-    } else {
-        state.player.mute();
-    }
-    
-    updatePlayerControls();
-}
-
-// Changer le volume
-function handleVolumeChange() {
-    if (!state.player) return;
-    
-    const volume = parseInt(volumeRange.value);
-    
-    state.player.setVolume(volume);
-    
-    if (volume === 0) {
-        state.player.mute();
-    } else if (state.player.isMuted()) {
-        state.player.unMute();
-    }
-    
-    updatePlayerControls();
-}
-
-// Passer à la vidéo suivante
-function skipVideo() {
-    if (state.currentVideoIndex < state.playlist.length - 1) {
-        playVideo(state.currentVideoIndex + 1);
-    } else if (state.playlist.length > 0) {
-        // Boucler à la première vidéo
-        playVideo(0);
-    }
-}
-
-// Activer/Désactiver le plein écran
-function toggleFullscreen() {
-    if (!videoPlayer) return;
-    
-    if (document.fullscreenElement) {
-        document.exitFullscreen();
-    } else {
-        videoPlayer.requestFullscreen();
-    }
-}
-
-// Activer/Désactiver l'emoji picker
-function toggleEmojiPicker() {
-    if (!emojiPicker) return;
-    
-    emojiPicker.classList.toggle('active');
-    
-    if (emojiPicker.classList.contains('active')) {
-        // Simuler des emojis
-        emojiPicker.innerHTML = '';
-        
-        const emojis = ['😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '🥰', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '☹️', '🙁', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '😡', '😠', '🤬', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '😇', '🤠', '🤡', '🥳', '🥴', '🥺', '🤥', '🤫', '🤭', '🧐', '🤓', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
-        
-        emojis.forEach(emoji => {
-            const span = document.createElement('span');
-            span.textContent = emoji;
-            span.addEventListener('click', () => {
-                if (messageInput) {
-                    messageInput.value += emoji;
-                    emojiPicker.classList.remove('active');
-                }
-            });
-            emojiPicker.appendChild(span);
-        });
-    }
-}
-
-// Réinitialiser le lecteur
-function resetPlayer() {
-    if (!videoPlayer) return;
-    
-    // Supprimer le lecteur existant
-    videoPlayer.innerHTML = `
-        <div class="placeholder-player">
-            <i class="fas fa-play-circle"></i>
-            <p>Ajoutez une vidéo pour commencer</p>
-        </div>
-    `;
-    
-    state.player = null;
-}
-
-// Générer une couleur aléatoire pour les utilisateurs
-function getRandomColor() {
-    const colors = [
-        '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c',
-        '#3498db', '#9b59b6', '#34495e', '#16a085', '#27ae60',
-        '#2980b9', '#8e44ad', '#2c3e50', '#f39c12', '#d35400',
-        '#c0392b', '#7f8c8d'
-    ];
-    
-    return colors[Math.floor(Math.random() * colors.length)];
-}
-
-// Initialiser au chargement de la page
-document.addEventListener('DOMContentLoaded', init);
-
-// Attendre que le DOM soit chargé pour initialiser la recherche
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM chargé, initialisation des fonctionnalités avancées');
-    
-    // Récupérer les éléments de recherche
-    const searchInput = document.getElementById('video-search');
-    const searchBtn = document.getElementById('search-btn');
-    const searchLargeBtn = document.getElementById('search-video-btn-large');
-    const resultsContainer = document.getElementById('search-results');
-    
-    // Vérifier et logger les éléments trouvés
-    console.log('Éléments de recherche:', {
-        'searchInput': searchInput ? 'Trouvé' : 'Manquant',
-        'searchBtn': searchBtn ? 'Trouvé' : 'Manquant',
-        'searchLargeBtn': searchLargeBtn ? 'Trouvé' : 'Manquant',
-        'resultsContainer': resultsContainer ? 'Trouvé' : 'Manquant'
-    });
-    
-    // Ajouter les écouteurs d'événements pour la recherche
-    if (searchBtn) {
-        searchBtn.addEventListener('click', function() {
-            console.log('Clic sur le bouton de recherche');
-            searchVideos();
-        });
-    }
-    
-    if (searchLargeBtn) {
-        searchLargeBtn.addEventListener('click', function() {
-            console.log('Clic sur le bouton large de recherche');
-            searchVideos();
-        });
-    }
-    
-    if (searchInput) {
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                console.log('Touche Enter pressée dans la recherche');
-                searchVideos();
-            }
-        });
-    }
-    
-    // Préremplir avec des suggestions si le conteneur de résultats existe
-    if (resultsContainer) {
-        // S'assurer qu'il est visible
-        resultsContainer.style.display = 'block';
-        
-        // Afficher des suggestions populaires par défaut
-        const popularSuggestions = [
-            {
-                id: 'fJ9rUzIMcZQ',
-                title: 'Queen - Bohemian Rhapsody',
-                thumbnail: 'https://i.ytimg.com/vi/fJ9rUzIMcZQ/mqdefault.jpg',
-                author: 'Queen Official',
-                viewCount: '1.6B',
-                lengthSeconds: 355
+                // Émettre l'état initial
+                socket.emit('player-state-change', {
+                    roomId: state.room.id,
+                    userId: state.user.id,
+                    currentTime: 0,
+                    playerState: 'paused'
+                });
             },
-            {
-                id: 'JGwWNGJdvx8',
-                title: 'Ed Sheeran - Shape of You',
-                thumbnail: 'https://i.ytimg.com/vi/JGwWNGJdvx8/mqdefault.jpg',
-                author: 'Ed Sheeran',
-                viewCount: '5.8B',
-                lengthSeconds: 263
+            onStateChange: (event) => {
+                // La gestion des états est maintenant déléguée au SyncManager
+                updateControlsUI(event.data);
+            },
+            onError: (event) => {
+                console.error('❌ Erreur du lecteur YouTube:', event.data);
+                showNotification('Erreur lors de la lecture de la vidéo', 'error');
             }
-        ];
-        
-        // Ajouter un titre pour les suggestions
-        const suggestionsTitle = document.createElement('div');
-        suggestionsTitle.className = 'search-suggestions-title';
-        suggestionsTitle.textContent = 'Suggestions de vidéos';
-        resultsContainer.appendChild(suggestionsTitle);
-        
-        // Afficher les résultats
-        displaySearchResults(popularSuggestions, resultsContainer);
-    }
-});
-
-// Fonction pour afficher une notification
-function showNotification(message, type = 'info') {
-    // Créer l'élément de notification
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.innerHTML = `
-        <span class="notification-message">${message}</span>
-        <button class="notification-close">&times;</button>
-    `;
-    
-    // Ajouter la notification au document
-    document.body.appendChild(notification);
-    
-    // Afficher la notification avec une animation
-    setTimeout(() => {
-        notification.classList.add('show');
-    }, 10);
-    
-    // Configurer le bouton de fermeture
-    const closeButton = notification.querySelector('.notification-close');
-    closeButton.addEventListener('click', () => {
-        notification.classList.remove('show');
-        setTimeout(() => {
-            notification.remove();
-        }, 300);
-    });
-    
-    // Fermer automatiquement après 5 secondes
-    setTimeout(() => {
-        if (document.body.contains(notification)) {
-            notification.classList.remove('show');
-            setTimeout(() => {
-                notification.remove();
-            }, 300);
         }
-    }, 5000);
-}
-
-// Fonction pour effectuer une recherche de vidéos YouTube
-function performSearch(query) {
-    console.log(`Recherche YouTube pour: "${query}"`);
-    
-    const resultsContainer = document.getElementById('search-results');
-    if (!resultsContainer) return;
-    
-    resultsContainer.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Recherche en cours...</div>';
-    resultsContainer.style.display = 'block';
-    
-    // Utiliser l'API YouTube pour la recherche
-    fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=10&key=${YOUTUBE_API_KEY}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Erreur lors de la recherche YouTube');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.items && data.items.length > 0) {
-                console.log('Résultats YouTube reçus:', data.items.length);
-                // Convertir les résultats au format attendu par showSearchResults
-                const formattedResults = data.items.map(item => ({
-                    id: item.id.videoId,
-                    title: item.snippet.title,
-                    thumbnail: item.snippet.thumbnails.medium.url,
-                    author: item.snippet.channelTitle,
-                    type: 'youtube'
-                }));
-                showSearchResults(formattedResults, resultsContainer);
-            } else {
-                resultsContainer.innerHTML = '<div class="no-results">Aucun résultat trouvé.</div>';
-            }
-        })
-        .catch(error => {
-            console.error('Erreur API YouTube:', error);
-            resultsContainer.innerHTML = `<div class="error">Erreur lors de la recherche: ${error.message}</div>`;
-        });
-}
-
-// Fonction pour afficher les résultats de recherche
-function showSearchResults(results, container) {
-    // Vider le conteneur
-    container.innerHTML = '';
-    
-    // Titre des résultats
-    const resultsTitle = document.createElement('div');
-    resultsTitle.className = 'search-suggestions-title';
-    resultsTitle.textContent = 'Résultats de recherche';
-    container.appendChild(resultsTitle);
-    
-    // Afficher chaque résultat
-    results.forEach(result => {
-        const resultElement = document.createElement('div');
-        resultElement.className = 'search-result';
-        
-        // Créer la structure HTML pour le résultat
-        resultElement.innerHTML = `
-            <div class="search-result-thumbnail">
-                <img src="${result.thumbnail}" alt="${result.title}">
-                <span class="video-duration">${result.duration || ''}</span>
-            </div>
-            <div class="search-result-info">
-                <h3>${result.title}</h3>
-                <div class="video-author">${result.author || 'YouTube'}</div>
-                <div class="video-views">${result.viewCount || ''}</div>
-            </div>
-            <div class="search-result-actions">
-                <button class="add-to-playlist" data-id="${result.id}" data-type="${result.type || 'youtube'}">
-                    <i class="fas fa-plus"></i> Ajouter
-                </button>
-            </div>
-        `;
-        
-        // Ajouter l'événement au bouton d'ajout
-        const addButton = resultElement.querySelector('.add-to-playlist');
-        addButton.addEventListener('click', function() {
-            // Récupérer les données de la vidéo
-            const videoId = this.dataset.id;
-            const videoType = this.dataset.type || 'youtube';
-            
-            // Ajouter à la playlist
-            state.playlist.push({
-                id: videoId,
-                type: videoType,
-                title: result.title,
-                thumbnail: result.thumbnail,
-                author: result.author || 'YouTube'
-            });
-            
-            // Mettre à jour la playlist et notifier les autres
-            updatePlaylistAndNotify();
-            
-            // Notifier l'utilisateur
-            showNotification(`"${result.title}" ajouté à la playlist`, 'success');
-            
-            // Si c'est la première vidéo, la lire automatiquement
-            if (state.playlist.length === 1) {
-                playVideo(0);
-            }
-        });
-        
-        container.appendChild(resultElement);
     });
 }
 
-// Fonction pour extraire l'ID de la vidéo à partir de l'URL
-function extractVideoId(url) {
-    // YouTube
-    let match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-    if (match && match[1]) {
-        return { id: match[1], type: 'youtube' };
-    }
+// Configurer les contrôles vidéo
+function setupVideoControls() {
+    if (!state.player) return;
     
-    // Vimeo
-    match = url.match(/(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)([0-9]+)/);
-    if (match && match[1]) {
-        return { id: match[1], type: 'vimeo' };
-    }
+    // Gestion de la barre de progression
+    progressBar.addEventListener('mousedown', () => {
+        if (state.syncManager) {
+            state.syncManager.isSeeking = true;
+        }
+    });
     
-    // Dailymotion
-    match = url.match(/dailymotion\.com\/(?:video\/|embed\/video\/)([a-zA-Z0-9]+)/);
-    if (match && match[1]) {
-        return { id: match[1], type: 'dailymotion' };
-    }
+    progressBar.addEventListener('mouseup', () => {
+        const newTime = (progressBar.value / 100) * state.player.getDuration();
+        socket.emit('video-seek', {
+            roomId: state.room.id,
+            userId: state.user.id,
+            time: newTime
+        });
+        
+        if (state.syncManager) {
+            setTimeout(() => {
+                state.syncManager.isSeeking = false;
+            }, 500);
+        }
+    });
     
-    // URL directe vers un fichier vidéo
-    match = url.match(/\.(mp4|webm|ogg)(\?.*)?$/i);
-    if (match) {
-        return { id: url, type: 'direct' };
-    }
+    // Gestion du bouton play/pause
+    playPauseBtn.addEventListener('click', () => {
+        const isPlaying = state.player.getPlayerState() === YT.PlayerState.PLAYING;
+        const action = isPlaying ? 'pause' : 'play';
+        
+        socket.emit('video-control', {
+            roomId: state.room.id,
+            userId: state.user.id,
+            userName: state.user.name,
+            action: action,
+            currentTime: state.player.getCurrentTime()
+        });
+        
+        if (action === 'play') {
+            state.player.playVideo();
+            updateSystemMessage(`${state.user.name} a lancé la lecture`);
+        } else {
+            state.player.pauseVideo();
+            updateSystemMessage(`${state.user.name} a mis la vidéo en pause`);
+        }
+    });
     
-    // Fallback pour autres URL iframes
-    return { id: url, type: 'iframe' };
-} 
+    // Gestion du volume
+    volumeBtn.addEventListener('click', () => {
+        const isMuted = state.player.isMuted();
+        if (isMuted) {
+            state.player.unMute();
+            const volume = state.player.getVolume();
+            volumeRange.value = volume;
+            updateVolumeIcon(volume);
+        } else {
+            state.player.mute();
+            volumeRange.value = 0;
+            updateVolumeIcon(0);
+        }
+    });
+    
+    volumeRange.addEventListener('input', (e) => {
+        const volume = e.target.value;
+        state.player.setVolume(volume);
+        updateVolumeIcon(volume);
+        
+        if (volume > 0) {
+            state.player.unMute();
+        } else {
+            state.player.mute();
+        }
+    });
+    
+    // Gestion du plein écran
+    fullscreenBtn.addEventListener('click', () => {
+        const videoContainer = document.querySelector('.video-container');
+        if (!document.fullscreenElement) {
+            if (videoContainer.requestFullscreen) {
+                videoContainer.requestFullscreen();
+            } else if (videoContainer.webkitRequestFullscreen) {
+                videoContainer.webkitRequestFullscreen();
+            } else if (videoContainer.msRequestFullscreen) {
+                videoContainer.msRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+    });
+    
+    // Mettre à jour la barre de progression
+    setInterval(() => {
+        if (state.player && state.player.getCurrentTime && state.player.getDuration) {
+            const currentTime = state.player.getCurrentTime();
+            const duration = state.player.getDuration();
+            const progress = (currentTime / duration) * 100;
+            
+            progressBar.value = progress;
+            progressFilled.style.width = `${progress}%`;
+            
+            // Mettre à jour les affichages de temps
+            currentTimeElement.textContent = formatTime(currentTime);
+            totalTimeElement.textContent = formatTime(duration);
+        }
+    }, 1000);
+}
+
+// ... rest of the existing code ... 

@@ -129,6 +129,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    overflow: hidden; /* Important pour les iframes */
 }
 
 /* En mode paysage, utiliser la hauteur complète */
@@ -138,11 +139,41 @@
 
 /* S'assurer que la vidéo est bien dimensionnée */
 .mobile-device .video-section,
-.mobile-device .video-player-container,
+.mobile-device .video-player-container {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    position: relative;
+    overflow: hidden;
+}
+
 .mobile-device #video-player {
     width: 100% !important;
     height: 100% !important;
     display: block !important;
+    position: relative;
+    background-color: #000;
+}
+
+/* Styles spécifiques pour les iframes YouTube */
+.mobile-device iframe[src*="youtube"],
+.mobile-device #yt-player {
+    width: 100% !important;
+    height: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 2;
+    border: none !important;
+}
+
+/* Styles pour le lecteur HTML5 direct */
+.mobile-device video,
+.mobile-device #direct-player {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+    background-color: #000;
 }
 
 /* Adaptation de la sidebar pour mobile */
@@ -304,6 +335,11 @@
     justify-content: center;
 }
 
+/* Afficher contrôles au-dessus du iframe */
+.mobile-device .video-controls {
+    z-index: 10 !important;
+}
+
 /* Volume slider caché sur mobile */
 .mobile-device .volume-slider {
     display: none;
@@ -420,6 +456,17 @@
 .mobile-device.ios-device .playlist-items,
 .mobile-device.ios-device .participants-list {
     -webkit-overflow-scrolling: touch;
+}
+
+/* Pour éviter les problèmes avec les vidéos sur iOS */
+.mobile-device.ios-device #video-player iframe,
+.mobile-device.ios-device #yt-player,
+.mobile-device.ios-device video {
+    position: absolute;
+    width: 100% !important;
+    height: 100% !important;
+    top: 0;
+    left: 0;
 }
 
 /* Styles pour l'écran d'accueil sur mobile */

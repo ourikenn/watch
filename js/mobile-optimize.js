@@ -49,6 +49,9 @@ document.addEventListener('DOMContentLoaded', function() {
         videoPlayer.style.height = '100%';
         videoSection.style.width = '100%';
         
+        // S'assurer que les contrôles YouTube sont activés pour mobile
+        fixYouTubePlayerForMobile();
+        
         // 2. Créer et ajouter la navigation du bas
         const bottomNav = document.createElement('div');
         bottomNav.className = 'mobile-bottom-nav';
@@ -104,7 +107,162 @@ document.addEventListener('DOMContentLoaded', function() {
         // 7. Ajuster le layout selon l'orientation
         handleOrientationChange();
         
+        // 8. Observer les changements dans le lecteur vidéo
+        observeVideoPlayerChanges();
+        
         console.log('✅ Adaptation pour mobile terminée avec succès');
+    }
+    
+    // Observer les modifications du lecteur vidéo pour s'assurer qu'il reste visible et fonctionnel
+    function observeVideoPlayerChanges() {
+        const videoPlayer = document.querySelector('#video-player');
+        if (!videoPlayer) return;
+        
+        console.log('🔄 Configuration de l\'observateur du lecteur vidéo');
+        
+        // Créer un observateur pour surveiller les modifications du DOM
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                if (mutation.addedNodes.length > 0) {
+                    // Vérifier si un iframe YouTube a été ajouté
+                    const youtubePlayer = videoPlayer.querySelector('iframe[src*="youtube"]');
+                    if (youtubePlayer) {
+                        console.log('✅ Lecteur YouTube détecté, application des optimisations');
+                        
+                        // Corriger l'intégration YouTube pour mobile
+                        fixYouTubeIframe(youtubePlayer);
+                        
+                        // S'assurer que l'iframe est bien dimensionné
+                        youtubePlayer.style.width = '100%';
+                        youtubePlayer.style.height = '100%';
+                        youtubePlayer.setAttribute('playsinline', '1');
+                        youtubePlayer.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+                    }
+                    
+                    // Vérifier si un lecteur vidéo HTML5 a été ajouté
+                    const htmlVideoPlayer = videoPlayer.querySelector('video');
+                    if (htmlVideoPlayer) {
+                        console.log('✅ Lecteur vidéo HTML5 détecté, application des optimisations');
+                        
+                        // Optimiser le lecteur HTML5 pour mobile
+                        htmlVideoPlayer.setAttribute('playsinline', 'true');
+                        htmlVideoPlayer.setAttribute('webkit-playsinline', 'true');
+                        htmlVideoPlayer.style.width = '100%';
+                        htmlVideoPlayer.style.height = '100%';
+                    }
+                }
+            });
+        });
+        
+        // Démarrer l'observation
+        observer.observe(videoPlayer, { 
+            childList: true,
+            subtree: true
+        });
+    }
+    
+    // Corriger l'intégration des iframes YouTube pour mobile
+    function fixYouTubeIframe(iframe) {
+        if (!iframe) return;
+        
+        // S'assurer que l'URL contient les paramètres nécessaires pour mobile
+        let src = iframe.src;
+        
+        // Ajouter les paramètres nécessaires s'ils ne sont pas déjà présents
+        if (!src.includes('playsinline=1')) {
+            src = src.includes('?') ? `${src}&playsinline=1` : `${src}?playsinline=1`;
+        }
+        
+        // Mettre à jour la source de l'iframe
+        iframe.src = src;
+        
+        // Attribuer du style pour garantir la visibilité
+        iframe.style.position = 'absolute';
+        iframe.style.left = '0';
+        iframe.style.top = '0';
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.border = 'none';
+    }
+    
+    // Corriger le lecteur YouTube pour une meilleure compatibilité mobile
+    function fixYouTubePlayerForMobile() {
+        // S'assurer que l'API YouTube charge avec les bonnes options pour mobile
+        if (typeof YT !== 'undefined' && YT.Player) {
+            // L'API est déjà chargée, modifier les options par défaut
+            console.log('✅ API YouTube déjà chargée, configuration pour mobile');
+            
+            // Sauvegarder la fonction originale de création du player
+            const originalCreatePlayer = window.createPlayer;
+            
+            // Remplacer par une version optimisée pour mobile
+            window.createPlayer = function(videoId) {
+                console.log('🔄 Création du lecteur YouTube optimisé pour mobile');
+                
+                // Supprimer le placeholder
+                const videoPlayer = document.querySelector('#video-player');
+                const placeholder = videoPlayer?.querySelector('.placeholder-player');
+                if (placeholder) {
+                    placeholder.remove();
+                }
+                
+                // Créer un élément pour le player
+                const playerElement = document.createElement('div');
+                playerElement.id = 'yt-player';
+                videoPlayer.appendChild(playerElement);
+                
+                // Créer le player YouTube avec des options optimisées pour mobile
+                window.player = new YT.Player('yt-player', {
+                    height: '100%',
+                    width: '100%',
+                    videoId: videoId,
+                    playerVars: {
+                        'playsinline': 1,
+                        'autoplay': 1,
+                        'controls': 0,
+                        'rel': 0,
+                        'modestbranding': 1,
+                        'enablejsapi': 1,
+                        'fs': 1,
+                        'origin': window.location.origin
+                    },
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onStateChange': onPlayerStateChange
+                    }
+                });
+            };
+        } else {
+            console.log('🔄 API YouTube pas encore chargée, préparation du hook');
+            
+            // Sauvegarder la fonction originale
+            const originalOnYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady;
+            
+            // Remplacer par notre fonction optimisée
+            window.onYouTubeIframeAPIReady = function() {
+                console.log('✅ API YouTube chargée, configuration pour mobile');
+                
+                // Appeler la fonction originale si elle existe
+                if (typeof originalOnYouTubeIframeAPIReady === 'function') {
+                    originalOnYouTubeIframeAPIReady();
+                }
+                
+                // Configurer l'API pour mobile
+                if (typeof YT !== 'undefined' && YT.Player) {
+                    // Personnaliser les options pour mobile
+                    const originalYTPFunction = YT.Player;
+                    YT.Player = function(id, options) {
+                        // S'assurer que les options de l'intégration mobile sont correctes
+                        if (options && options.playerVars) {
+                            options.playerVars.playsinline = 1;
+                            options.playerVars.modestbranding = 1;
+                            options.playerVars.fs = 1;
+                        }
+                        return new originalYTPFunction(id, options);
+                    };
+                }
+            };
+        }
     }
     
     // Configuration de la navigation par onglets adaptée pour mobile
@@ -123,6 +281,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Déplacer la section vidéo dans le conteneur mobile
                 if (!mobileVideoContainer.contains(videoSection)) {
                     mobileVideoContainer.appendChild(videoSection);
+                    
+                    // Vérifier si un lecteur YouTube est présent et le réparer
+                    const youtubeIframe = document.querySelector('iframe[src*="youtube"]');
+                    if (youtubeIframe) {
+                        fixYouTubeIframe(youtubeIframe);
+                    }
                 }
                 
                 // S'assurer que la vidéo est visible
@@ -369,6 +533,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 10);
             }
         });
+        
+        // Réinitialiser les lecteurs vidéo si nécessaire
+        const youtubeIframe = document.querySelector('iframe[src*="youtube"]');
+        if (youtubeIframe) {
+            fixYouTubeIframe(youtubeIframe);
+        }
     }
     
     // Adapter les modales pour le mobile
